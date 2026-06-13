@@ -91,6 +91,44 @@ class TaskState:
 
         return data
 
+def calculate_estimated_duration_static(
+    research_depth: str,
+    selected_analysts: list,
+    llm_provider: str,
+) -> float:
+    """根据分析参数计算预估总时长（秒）— 静态版本，可在无实例时调用。
+
+    算法与 RedisProgressTracker._get_base_total_time() 保持一致，
+    基于实际测试数据（docs/time_estimation_optimization.md）。
+    """
+    depth_map = {"快速": 1, "基础": 2, "标准": 3, "深度": 4, "全面": 5}
+    d = depth_map.get(research_depth, 3)
+
+    base_time_per_depth = {1: 150, 2: 180, 3: 240, 4: 330, 5: 480}
+    base_time = base_time_per_depth.get(d, 240)
+
+    analyst_count = len(selected_analysts) if selected_analysts else 1
+    if analyst_count <= 1:
+        analyst_multiplier = 1.0
+    elif analyst_count == 2:
+        analyst_multiplier = 1.5
+    elif analyst_count == 3:
+        analyst_multiplier = 2.0
+    elif analyst_count == 4:
+        analyst_multiplier = 2.4
+    else:
+        analyst_multiplier = 2.4 + (analyst_count - 4) * 0.3
+
+    model_mult = {
+        'qwen': 1.0,
+        'dashscope': 1.0,
+        'deepseek': 0.8,
+        'google': 1.2,
+    }.get(llm_provider, 1.0)
+
+    return base_time * analyst_multiplier * model_mult
+
+
 class MemoryStateManager:
     """内存状态管理器"""
 
@@ -138,47 +176,15 @@ class MemoryStateManager:
             return task_state
 
     def _calculate_estimated_duration(self, parameters: Dict[str, Any]) -> float:
-        """根据分析参数计算预估总时长（秒）"""
-        # 基础时间（秒）- 环境准备、配置等
-        base_time = 60
+        """根据分析参数计算预估总时长（秒）
 
-        # 获取分析参数
+        使用与 RedisProgressTracker 相同的算法（基于实际测试数据）。
+        """
         research_depth = parameters.get('research_depth', '标准')
         selected_analysts = parameters.get('selected_analysts', [])
         from tradingagents.llm_clients.provider_keys import normalize_provider_key
-
         llm_provider = normalize_provider_key(parameters.get('llm_provider', 'dashscope'))
-
-        # 研究深度映射
-        depth_map = {"快速": 1, "标准": 2, "深度": 3}
-        d = depth_map.get(research_depth, 2)
-
-        # 每个分析师的基础耗时（基于真实测试数据）
-        analyst_base_time = {
-            1: 180,  # 快速分析：每个分析师约3分钟
-            2: 360,  # 标准分析：每个分析师约6分钟
-            3: 600   # 深度分析：每个分析师约10分钟
-        }.get(d, 360)
-
-        analyst_time = len(selected_analysts) * analyst_base_time
-
-        # 模型速度影响（基于实际测试）
-        model_multiplier = {
-            'qwen': 1.0,       # 阿里百炼（通义千问）速度适中
-            'dashscope': 1.0,  # 阿里百炼速度适中
-            'deepseek': 0.7,   # DeepSeek较快
-            'google': 1.3      # Google较慢
-        }.get(llm_provider, 1.0)
-
-        # 研究深度额外影响（工具调用复杂度）
-        depth_multiplier = {
-            1: 0.8,  # 快速分析，较少工具调用
-            2: 1.0,  # 标准分析，标准工具调用
-            3: 1.3   # 深度分析，更多工具调用和推理
-        }.get(d, 1.0)
-
-        total_time = (base_time + analyst_time) * model_multiplier * depth_multiplier
-        return total_time
+        return calculate_estimated_duration_static(research_depth, selected_analysts, llm_provider)
 
     async def update_task_status(
         self,
@@ -228,6 +234,8 @@ class MemoryStateManager:
             # 推送状态更新到 WebSocket
             if self._websocket_manager:
                 try:
+                    # 计算时间估算
+                    task_dict = task.to_dict()
                     progress_update = {
                         "type": "progress_update",
                         "task_id": task_id,
@@ -235,7 +243,10 @@ class MemoryStateManager:
                         "progress": task.progress,
                         "message": task.message,
                         "current_step": task.current_step,
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now().isoformat(),
+                        "elapsed_time": task_dict.get("elapsed_time", 0),
+                        "remaining_time": task_dict.get("remaining_time", 0),
+                        "estimated_total_time": task_dict.get("estimated_total_time", 0),
                     }
                     # 异步推送，不等待完成
                     asyncio.create_task(

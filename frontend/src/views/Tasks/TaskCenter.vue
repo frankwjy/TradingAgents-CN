@@ -98,6 +98,13 @@
             <el-progress :percentage="row.progress || 0" :status="row.status==='failed'?'exception':(row.status==='completed'?'success':undefined)"/>
           </template>
         </el-table-column>
+        <el-table-column label="预计剩余" width="120">
+          <template #default="{ row }">
+            <span v-if="row.status === 'completed' || row.status === 'failed' || row.status === 'cancelled'">-</span>
+            <span v-else-if="row.remaining_time > 0">{{ formatDuration(row.remaining_time) }}</span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="start_time" label="开始时间" width="180">
           <template #default="{ row }">
             {{ formatTime(row.start_time || row.created_at) }}
@@ -209,6 +216,15 @@ const connectTaskWebSocket = (taskId: string) => {
             list.value[taskIndex].progress = message.progress
             list.value[taskIndex].status = message.status
             list.value[taskIndex].message = message.message
+            if (message.remaining_time !== undefined) {
+              list.value[taskIndex].remaining_time = message.remaining_time
+            }
+            if (message.elapsed_time !== undefined) {
+              list.value[taskIndex].elapsed_time = message.elapsed_time
+            }
+            if (message.estimated_total_time !== undefined) {
+              list.value[taskIndex].estimated_total_time = message.estimated_total_time
+            }
             console.log(`📊 更新任务进度: ${taskId} -> ${message.progress}%`)
           }
         }
@@ -522,6 +538,13 @@ import { formatDateTime } from '@/utils/datetime'
 
 const getStatusText = (status:string) => ({ pending:'等待中', processing:'处理中', completed:'已完成', failed:'失败', cancelled:'已取消' } as any)[status] || status
 const formatTime = (t:string) => t ? formatDateTime(t) : '-'
+const formatDuration = (seconds: number) => {
+  if (!seconds || seconds <= 0) return '-'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  if (m > 0) return `${m}分${s}秒`
+  return `${s}秒`
+}
 </script>
 
 <style scoped lang="scss">

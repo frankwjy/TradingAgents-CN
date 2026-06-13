@@ -188,6 +188,10 @@ class AnalysisTaskResponse(BaseModel):
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
     result: Optional[AnalysisResult]
+    # 时间估算字段
+    elapsed_time: Optional[float] = Field(default=None, description="已用时间（秒）")
+    remaining_time: Optional[float] = Field(default=None, description="预计剩余时间（秒）")
+    estimated_total_time: Optional[float] = Field(default=None, description="预估总时长（秒）")
 
     @field_serializer('created_at', 'started_at', 'completed_at')
     def serialize_datetime(self, dt: Optional[datetime], _info) -> Optional[str]:
