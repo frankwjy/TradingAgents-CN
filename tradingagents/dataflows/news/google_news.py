@@ -22,7 +22,7 @@ SLEEP_MIN = get_float("TA_GOOGLE_NEWS_SLEEP_MIN_SECONDS", "ta_google_news_sleep_
 SLEEP_MAX = get_float("TA_GOOGLE_NEWS_SLEEP_MAX_SECONDS", "ta_google_news_sleep_max_seconds", 6.0)
 
 # 死循环防护: 限制最大翻页数，防止无限循环
-MAX_PAGES = 10
+MAX_PAGES = 50
 
 
 def is_rate_limited(response):

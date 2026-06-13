@@ -32,7 +32,7 @@ class TestGoogleNewsMaxPages:
         assert hasattr(gn, "MAX_PAGES"), "google_news.py must define MAX_PAGES"
         assert isinstance(gn.MAX_PAGES, int), "MAX_PAGES must be an integer"
         assert gn.MAX_PAGES > 0, "MAX_PAGES must be positive"
-        assert gn.MAX_PAGES <= 20, "MAX_PAGES should be <= 20 to prevent long hangs"
+        assert gn.MAX_PAGES <= 100, "MAX_PAGES should be <= 100 to prevent long hangs"
 
     def test_loop_uses_max_pages(self):
         """The getNewsData source must reference MAX_PAGES in its loop guard."""
@@ -114,7 +114,7 @@ class TestMessageCountSafetyCheck:
             pytest.skip("Dependencies not available")
 
         logic = ConditionalLogic()
-        state = self._make_state(tool_call_count=0, messages_count=60, tool_calls=True)
+        state = self._make_state(tool_call_count=0, messages_count=110, tool_calls=True)
         result = logic.should_continue_market(state)
         assert result == "Msg Clear Market", f"Expected forced exit, got {result}"
 
@@ -126,7 +126,7 @@ class TestMessageCountSafetyCheck:
             pytest.skip("Dependencies not available")
 
         logic = ConditionalLogic()
-        state = self._make_state(tool_call_count=0, messages_count=60, tool_calls=True)
+        state = self._make_state(tool_call_count=0, messages_count=110, tool_calls=True)
         result = logic.should_continue_social(state)
         assert result == "Msg Clear Social", f"Expected forced exit, got {result}"
 
@@ -138,7 +138,7 @@ class TestMessageCountSafetyCheck:
             pytest.skip("Dependencies not available")
 
         logic = ConditionalLogic()
-        state = self._make_state(tool_call_count=0, messages_count=60, tool_calls=True)
+        state = self._make_state(tool_call_count=0, messages_count=110, tool_calls=True)
         result = logic.should_continue_news(state)
         assert result == "Msg Clear News", f"Expected forced exit, got {result}"
 
@@ -150,7 +150,7 @@ class TestMessageCountSafetyCheck:
             pytest.skip("Dependencies not available")
 
         logic = ConditionalLogic()
-        state = self._make_state(tool_call_count=0, messages_count=60, tool_calls=True)
+        state = self._make_state(tool_call_count=0, messages_count=110, tool_calls=True)
         result = logic.should_continue_fundamentals(state)
         assert result == "Msg Clear Fundamentals", f"Expected forced exit, got {result}"
 
@@ -174,6 +174,6 @@ class TestMessageCountSafetyCheck:
             pytest.skip("Dependencies not available")
 
         logic = ConditionalLogic()
-        state = self._make_state(tool_call_count=3, messages_count=5, tool_calls=True)
+        state = self._make_state(tool_call_count=300, messages_count=5, tool_calls=True)
         result = logic.should_continue_market(state)
         assert result == "Msg Clear Market", f"Expected counter-based exit, got {result}"

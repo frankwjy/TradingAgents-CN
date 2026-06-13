@@ -8,7 +8,7 @@ logger = get_logger("default")
 
 
 # 死循环防护: 消息数量安全阈值，超过此数量强制退出分析师循环
-MAX_MESSAGES = 50
+MAX_MESSAGES = 100
 
 
 class ConditionalLogic:
@@ -29,7 +29,7 @@ class ConditionalLogic:
 
         # 死循环修复: 添加工具调用次数检查
         tool_call_count = state.get("market_tool_call_count", 0)
-        max_tool_calls = 3
+        max_tool_calls = 300
 
         # 检查是否已经有市场分析报告
         market_report = state.get("market_report", "")
@@ -79,7 +79,7 @@ class ConditionalLogic:
 
         # 死循环修复: 添加工具调用次数检查
         tool_call_count = state.get("sentiment_tool_call_count", 0)
-        max_tool_calls = 3
+        max_tool_calls = 300
 
         # 检查是否已经有情绪分析报告
         sentiment_report = state.get("sentiment_report", "")
@@ -122,7 +122,7 @@ class ConditionalLogic:
 
         # 死循环修复: 添加工具调用次数检查
         tool_call_count = state.get("news_tool_call_count", 0)
-        max_tool_calls = 3
+        max_tool_calls = 300
 
         # 检查是否已经有新闻分析报告
         news_report = state.get("news_report", "")
@@ -165,7 +165,7 @@ class ConditionalLogic:
 
         # 死循环修复: 添加工具调用次数检查
         tool_call_count = state.get("fundamentals_tool_call_count", 0)
-        max_tool_calls = 1  # 一次工具调用就能获取所有数据
+        max_tool_calls = 300
 
         # 检查是否已经有基本面报告
         fundamentals_report = state.get("fundamentals_report", "")
