@@ -89,6 +89,11 @@ dependencies = [
 
 [project.optional-dependencies]
 qianfan = ["qianfan>=0.4.20"]
+dev = [
+    "ruff>=0.4.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
+]
 
 [project.scripts]
 tradingagents = "main:main"
@@ -96,3 +101,26 @@ tradingagents = "main:main"
 [tool.setuptools.packages.find]
 include = ["tradingagents*"]
 exclude = ["tests*", "docs*", "scripts*", "data*", "logs*", "reports*", "results*", "eval_results*", "upstream_contribution*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults
+    "SIM108", # use ternary operator (readability tradeoff)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tradingagents", "app"]
