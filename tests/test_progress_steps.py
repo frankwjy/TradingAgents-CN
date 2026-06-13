@@ -38,7 +38,7 @@ async def login() -> str:
                     print(f"❌ 无法从响应中提取token")
                     return None
 
-                print(f"✅ 登录成功，token: {token[:20]}...")
+                print(f"✅ 登录成功（出于安全考虑不显示token）")
                 return token
             else:
                 error = await response.text()

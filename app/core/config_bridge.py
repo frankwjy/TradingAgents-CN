@@ -248,8 +248,9 @@ def bridge_config_to_env():
             # 这样可以捕获更详细的错误信息
             if use_mongodb.lower() == "true":
                 try:
-                    # 🔍 详细日志：显示完整的连接字符串（用于调试）
-                    logger.info(f"  🔍 实际传入的连接字符串: {mongodb_conn}")
+                    # 安全日志：不显示完整连接字符串（包含密码）
+                    safe_conn = mongodb_conn[:30] + "***" if len(mongodb_conn) > 30 else "***"
+                    logger.info(f"  🔍 实际传入的连接字符串: {safe_conn}")
                     logger.info(f"  🔍 实际传入的数据库名称: {mongodb_db}")
 
                     config_manager.mongodb_storage = MongoDBStorage(

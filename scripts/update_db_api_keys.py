@@ -104,7 +104,7 @@ async def update_api_keys():
                 if old_token != tushare_token:
                     ds_config["api_key"] = tushare_token
                     ds_config["enabled"] = True
-                    print(f"  ✅ 更新 TUSHARE_TOKEN: {old_token[:10]}... → {tushare_token[:10]}... (长度: {len(tushare_token)})")
+                    print(f"  ✅ 更新 TUSHARE_TOKEN（出于安全考虑不显示token内容）")
                     updated_count += 1
                 else:
                     print(f"  ⏭️  TUSHARE_TOKEN: 已是最新")

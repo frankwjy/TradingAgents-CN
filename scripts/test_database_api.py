@@ -151,7 +151,7 @@ async def main():
         # 1. 登录
         print("🔐 正在登录...")
         token = await login()
-        print(f"✅ 登录成功，Token: {token[:20]}...\n")
+        print(f"✅ 登录成功（出于安全考虑不显示token）\n")
         
         # 2. 测试数据库状态接口
         await test_database_status(token)
