@@ -414,8 +414,187 @@ class ModelCapabilityService:
                     return f"建议使用: {display_name}"
         except Exception as e:
             logger.warning(f"推荐模型失败: {e}")
-        
+
         return "建议升级模型配置"
+
+    def save_model_capability(
+        self,
+        model_name: str,
+        capability_level: int,
+        suitable_roles: List[str],
+        features: List[str],
+        recommended_depths: List[str],
+        performance_metrics: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        保存模型能力配置到数据库
+
+        Args:
+            model_name: 模型名称
+            capability_level: 能力等级 (1-5)
+            suitable_roles: 适用角色列表
+            features: 特性列表
+            recommended_depths: 推荐分析深度列表
+            performance_metrics: 性能指标
+
+        Returns:
+            是否保存成功
+        """
+        try:
+            from pymongo import MongoClient
+            from app.core.config import settings
+
+            # 使用同步 MongoDB 客户端
+            client = MongoClient(settings.MONGO_URI)
+            db = client[settings.MONGO_DB]
+            collection = db.system_configs
+
+            # 获取当前激活的配置
+            doc = collection.find_one({"is_active": True}, sort=[("version", -1)])
+
+            if not doc:
+                logger.warning("没有找到激活的系统配置，无法保存模型能力")
+                client.close()
+                return False
+
+            # 更新 llm_configs 中对应模型的能力配置
+            llm_configs = doc.get("llm_configs", [])
+            updated = False
+
+            for i, config in enumerate(llm_configs):
+                if config.get("model_name") == model_name:
+                    # 更新现有配置的能力字段
+                    llm_configs[i]["capability_level"] = capability_level
+                    llm_configs[i]["suitable_roles"] = suitable_roles
+                    llm_configs[i]["features"] = features
+                    llm_configs[i]["recommended_depths"] = recommended_depths
+                    if performance_metrics is not None:
+                        llm_configs[i]["performance_metrics"] = performance_metrics
+                    updated = True
+                    logger.info(f"✅ 更新模型 {model_name} 的能力配置")
+                    break
+
+            if not updated:
+                # 如果模型不存在，添加新的模型能力配置
+                new_config = {
+                    "model_name": model_name,
+                    "capability_level": capability_level,
+                    "suitable_roles": suitable_roles,
+                    "features": features,
+                    "recommended_depths": recommended_depths,
+                    "performance_metrics": performance_metrics,
+                    "enabled": True
+                }
+                llm_configs.append(new_config)
+                logger.info(f"✅ 添加模型 {model_name} 的能力配置")
+
+            # 更新数据库
+            result = collection.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"llm_configs": llm_configs}}
+            )
+
+            client.close()
+
+            if result.modified_count > 0 or result.matched_count > 0:
+                logger.info(f"✅ 模型能力配置保存成功: {model_name}")
+                return True
+            else:
+                logger.warning(f"⚠️ 模型能力配置保存失败: {model_name}")
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ 保存模型能力配置失败: {e}", exc_info=True)
+            return False
+
+    def save_model_capabilities_batch(
+        self,
+        capabilities: List[Dict[str, Any]]
+    ) -> Dict[str, int]:
+        """
+        批量保存模型能力配置
+
+        Args:
+            capabilities: 模型能力配置列表，每个元素包含 model_name, capability_level, suitable_roles, features, recommended_depths, performance_metrics
+
+        Returns:
+            保存结果统计 {"updated": int, "added": int, "failed": int}
+        """
+        try:
+            from pymongo import MongoClient
+            from app.core.config import settings
+
+            # 使用同步 MongoDB 客户端
+            client = MongoClient(settings.MONGO_URI)
+            db = client[settings.MONGO_DB]
+            collection = db.system_configs
+
+            # 获取当前激活的配置
+            doc = collection.find_one({"is_active": True}, sort=[("version", -1)])
+
+            if not doc:
+                logger.warning("没有找到激活的系统配置，无法保存模型能力")
+                client.close()
+                return {"updated": 0, "added": 0, "failed": len(capabilities)}
+
+            # 获取现有的 llm_configs
+            llm_configs = doc.get("llm_configs", [])
+            result_stats = {"updated": 0, "added": 0, "failed": 0}
+
+            for cap in capabilities:
+                model_name = cap.get("model_name")
+                if not model_name:
+                    result_stats["failed"] += 1
+                    continue
+
+                # 查找现有配置
+                found = False
+                for i, config in enumerate(llm_configs):
+                    if config.get("model_name") == model_name:
+                        # 更新现有配置
+                        llm_configs[i]["capability_level"] = cap.get("capability_level", 2)
+                        llm_configs[i]["suitable_roles"] = cap.get("suitable_roles", ["both"])
+                        llm_configs[i]["features"] = cap.get("features", [])
+                        llm_configs[i]["recommended_depths"] = cap.get("recommended_depths", ["快速", "基础", "标准"])
+                        if "performance_metrics" in cap:
+                            llm_configs[i]["performance_metrics"] = cap["performance_metrics"]
+                        result_stats["updated"] += 1
+                        found = True
+                        break
+
+                if not found:
+                    # 添加新配置
+                    new_config = {
+                        "model_name": model_name,
+                        "capability_level": cap.get("capability_level", 2),
+                        "suitable_roles": cap.get("suitable_roles", ["both"]),
+                        "features": cap.get("features", []),
+                        "recommended_depths": cap.get("recommended_depths", ["快速", "基础", "标准"]),
+                        "performance_metrics": cap.get("performance_metrics"),
+                        "enabled": True
+                    }
+                    llm_configs.append(new_config)
+                    result_stats["added"] += 1
+
+            # 更新数据库
+            update_result = collection.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"llm_configs": llm_configs}}
+            )
+
+            client.close()
+
+            if update_result.modified_count > 0 or update_result.matched_count > 0:
+                logger.info(f"✅ 批量保存模型能力配置成功: {result_stats}")
+            else:
+                logger.warning(f"⚠️ 批量保存模型能力配置失败")
+                result_stats["failed"] = len(capabilities)
+
+            return result_stats
+
+        except Exception as e:
+            logger.error(f"❌ 批量保存模型能力配置失败: {e}", exc_info=True)
+            return {"updated": 0, "added": 0, "failed": len(capabilities)}
 
 
 # 单例
