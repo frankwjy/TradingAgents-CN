@@ -1742,7 +1742,7 @@ def version():
         with open("VERSION", "r", encoding="utf-8") as f:
             version = f.read().strip()
     except FileNotFoundError:
-        version = "1.0.0"
+        version = "1.0.1"
 
     logger.info(f"\n[bold blue]📊 TradingAgents 版本信息 | Version Information[/bold blue]")
     logger.info(f"[green]版本 | Version:[/green] {version} [yellow](预览版 | Preview)[/yellow]")
