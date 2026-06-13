@@ -249,15 +249,8 @@ class RealtimeNewsAggregator:
         """获取NewsAPI新闻"""
         try:
             # 构建搜索查询
-            company_names = {
-                'AAPL': 'Apple',
-                'TSLA': 'Tesla',
-                'NVDA': 'NVIDIA',
-                'MSFT': 'Microsoft',
-                'GOOGL': 'Google'
-            }
-
-            query = f"{ticker} OR {company_names.get(ticker, ticker)}"
+            from tradingagents.config.us_stock_names import get_company_name_en
+            query = f"{ticker} OR {get_company_name_en(ticker, fallback=ticker)}"
 
             url = "https://newsapi.org/v2/everything"
             params = {
@@ -544,20 +537,14 @@ class RealtimeNewsAggregator:
             return 1.0
 
         # 公司名称匹配
-        company_names = {
-            'aapl': ['apple', 'iphone', 'ipad', 'mac'],
-            'tsla': ['tesla', 'elon musk', 'electric vehicle'],
-            'nvda': ['nvidia', 'gpu', 'ai chip'],
-            'msft': ['microsoft', 'windows', 'azure'],
-            'googl': ['google', 'alphabet', 'search']
-        }
+        from tradingagents.config.us_stock_names import get_search_keywords
+        keywords = get_search_keywords(ticker_lower)
 
         # 检查公司相关关键词
-        if ticker_lower in company_names:
-            for name in company_names[ticker_lower]:
-                if name in text:
-                    logger.debug(f"[相关性计算] 检测到公司相关关键词 '{name}' 在标题中，相关性评分: 0.8，标题: {title[:50]}...")
-                    return 0.8
+        for name in keywords:
+            if name in text:
+                logger.debug(f"[相关性计算] 检测到公司相关关键词 '{name}' 在标题中，相关性评分: 0.8，标题: {title[:50]}...")
+                return 0.8
 
         # 提取股票代码的纯数字部分（适用于中国股票）
         pure_code = ''.join(filter(str.isdigit, ticker))
