@@ -16,7 +16,7 @@ from app.core.database import get_mongo_db, get_redis_client
 from app.services.database_service import DatabaseService
 
 router = APIRouter(prefix="/database", tags=["数据库管理"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 # 请求模型
 class BackupRequest(BaseModel):

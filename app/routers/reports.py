@@ -16,7 +16,7 @@ from ..core.database import get_mongo_db
 from ..utils.timezone import to_config_tz
 import logging
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 # 股票名称缓存
 _stock_name_cache = {}

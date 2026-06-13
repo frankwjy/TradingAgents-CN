@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.services.queue_service import get_queue_service, QueueService
 
 router = APIRouter()
-logger = logging.getLogger("webapi.sse")
+logger = logging.getLogger(__name__)
 
 
 async def task_progress_generator(task_id: str, user_id: str):

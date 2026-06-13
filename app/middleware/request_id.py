@@ -11,7 +11,7 @@ import time
 import logging
 from typing import Callable
 
-from app.core.logging_context import trace_id_var
+from app.core.logging_context import trace_id_var, set_request_context, clear_request_context
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,21 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # 将 trace_id 写入 contextvars
         token = trace_id_var.set(trace_id)
 
+        # Set structured request context
+        client_ip = request.client.host if request.client else "unknown"
+        ctx_token = set_request_context(
+            method=request.method,
+            path=request.url.path,
+            client_ip=client_ip,
+        )
+
         # 记录请求开始时间
         start_time = time.time()
 
-        # 记录请求信息
+        # 记录请求信息 (structured via extra fields)
         logger.info(
-            f"请求开始 - trace_id: {trace_id}, "
-            f"方法: {request.method}, 路径: {request.url.path}, "
-            f"客户端: {request.client.host if request.client else 'unknown'}"
+            "request_started",
+            extra={"method": request.method, "path": request.url.path, "client_ip": client_ip}
         )
 
         try:
@@ -51,8 +58,14 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             response.headers["X-Process-Time"] = f"{process_time:.3f}"
 
             # 记录请求完成信息
+            status_class = "success" if response.status_code < 400 else "client_error" if response.status_code < 500 else "server_error"
             logger.info(
-                f"请求完成 - trace_id: {trace_id}, 状态码: {response.status_code}, 处理时间: {process_time:.3f}s"
+                "request_completed",
+                extra={
+                    "status_code": response.status_code,
+                    "status_class": status_class,
+                    "duration_s": round(process_time, 3),
+                }
             )
 
             return response
@@ -63,13 +76,16 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
             # 记录请求异常信息
             logger.error(
-                f"请求异常 - trace_id: {trace_id}, 处理时间: {process_time:.3f}s, 异常: {str(exc)}"
+                "request_failed",
+                extra={"duration_s": round(process_time, 3), "error": str(exc)},
+                exc_info=True
             )
             raise
 
         finally:
             # 清理 contextvar，避免泄露到后续请求
             try:
+                clear_request_context(ctx_token)
                 trace_id_var.reset(token)
             except Exception:
                 pass
