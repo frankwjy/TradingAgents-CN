@@ -2543,13 +2543,8 @@ class SimpleAnalysisService:
                         clean_ticker = stock_symbol.replace('.HK', '').replace('.hk', '')
                         stock_name = f"港股{clean_ticker}"
                 elif market_info.get("market") == "us":
-                    # 美股：使用简单映射
-                    us_stock_names = {
-                        'AAPL': '苹果公司', 'TSLA': '特斯拉', 'NVDA': '英伟达',
-                        'MSFT': '微软', 'GOOGL': '谷歌', 'AMZN': '亚马逊',
-                        'META': 'Meta', 'NFLX': '奈飞'
-                    }
-                    stock_name = us_stock_names.get(stock_symbol.upper(), f"美股{stock_symbol}")
+                    from tradingagents.config.us_stock_names import get_company_name_zh
+                    stock_name = get_company_name_zh(stock_symbol)
                     logger.info(f"📊 获取美股名称: {stock_symbol} -> {stock_name}")
             except Exception as e:
                 logger.warning(f"⚠️ 获取股票名称失败: {stock_symbol} - {e}")

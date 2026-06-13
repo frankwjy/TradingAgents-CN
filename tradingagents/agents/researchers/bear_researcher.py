@@ -56,12 +56,8 @@ def create_bear_researcher(llm, memory):
                         clean_ticker = ticker_code.replace('.HK', '').replace('.hk', '')
                         return f"港股{clean_ticker}"
                 elif market_info_dict['is_us']:
-                    us_stock_names = {
-                        'AAPL': '苹果公司', 'TSLA': '特斯拉', 'NVDA': '英伟达',
-                        'MSFT': '微软', 'GOOGL': '谷歌', 'AMZN': '亚马逊',
-                        'META': 'Meta', 'NFLX': '奈飞'
-                    }
-                    return us_stock_names.get(ticker_code.upper(), f"美股{ticker_code}")
+                    from tradingagents.config.us_stock_names import get_company_name_zh
+                    return get_company_name_zh(ticker_code)
             except Exception as e:
                 logger.error(f"❌ [空头研究员] 获取公司名称失败: {e}")
             return f"股票代码{ticker_code}"
