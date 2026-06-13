@@ -24,6 +24,12 @@ logger = setup_dataflow_logging()
 # 导入统一数据源编码
 from tradingagents.constants import DataSourceCode
 
+# 导入数据源回退追踪器
+try:
+    from app.services.data_sources.fallback_tracker import get_fallback_tracker
+except ImportError:
+    get_fallback_tracker = None
+
 
 class ChinaDataSource(Enum):
     """
@@ -1388,6 +1394,14 @@ class DataSourceManager:
         """
         logger.info(f"🔄 [{self.current_source.value}] 失败，尝试备用数据源获取{period}数据: {symbol}")
 
+        # 初始化回退追踪器
+        tracker = None
+        if get_fallback_tracker:
+            tracker = get_fallback_tracker()
+            tracker.begin(f"stock_data_{period}", self.current_source.value, symbol=symbol)
+            tracker.record_attempt(self.current_source.value, False, 0,
+                                   error="primary source failed", error_type="FallbackTriggered")
+
         # 🔥 从数据库获取数据源优先级顺序（根据股票代码识别市场）
         # 注意：不包含MongoDB，因为MongoDB是最高优先级，如果失败了就不再尝试
         fallback_order = self._get_data_source_priority_order(symbol)
@@ -1396,6 +1410,7 @@ class DataSourceManager:
             if source != self.current_source and source in self.available_sources:
                 try:
                     logger.info(f"🔄 [备用数据源] 尝试 {source.value} 获取{period}数据: {symbol}")
+                    t0 = time.monotonic()
 
                     # 直接调用具体的数据源方法，避免递归
                     if source == ChinaDataSource.TUSHARE:
@@ -1409,16 +1424,30 @@ class DataSourceManager:
                         logger.warning(f"⚠️ 未知数据源: {source.value}")
                         continue
 
+                    duration_ms = (time.monotonic() - t0) * 1000
+
                     if "❌" not in result:
+                        if tracker:
+                            tracker.record_attempt(source.value, True, duration_ms)
+                            tracker.finish(source.value, True)
                         logger.info(f"✅ [备用数据源-{source.value}] 成功获取{period}数据: {symbol}")
                         return result, source.value  # 返回结果和实际使用的数据源
                     else:
+                        if tracker:
+                            tracker.record_attempt(source.value, False, duration_ms,
+                                                   error="returned error in result", error_type="DataQualityError")
                         logger.warning(f"⚠️ [备用数据源-{source.value}] 返回错误结果: {symbol}")
 
                 except Exception as e:
+                    duration_ms = (time.monotonic() - t0) * 1000
+                    if tracker:
+                        tracker.record_attempt(source.value, False, duration_ms,
+                                               error=str(e), error_type=type(e).__name__)
                     logger.error(f"❌ [备用数据源-{source.value}] 获取失败: {symbol}, 错误: {e}")
                     continue
 
+        if tracker:
+            tracker.finish(None, False)
         logger.error(f"❌ [所有数据源失败] 无法获取{period}数据: {symbol}")
         return f"❌ 所有数据源都无法获取{symbol}的{period}数据", None
 
@@ -1597,6 +1626,13 @@ class DataSourceManager:
         """尝试使用备用数据源获取股票基本信息"""
         logger.error(f"🔄 {self.current_source.value}失败，尝试备用数据源获取股票信息...")
 
+        tracker = None
+        if get_fallback_tracker:
+            tracker = get_fallback_tracker()
+            tracker.begin("stock_info", self.current_source.value, symbol=symbol)
+            tracker.record_attempt(self.current_source.value, False, 0,
+                                   error="primary source failed", error_type="FallbackTriggered")
+
         # 获取所有可用数据源
         available_sources = self.available_sources.copy()
 
@@ -1609,6 +1645,7 @@ class DataSourceManager:
             try:
                 source = ChinaDataSource(source_name)
                 logger.info(f"🔄 尝试备用数据源获取股票信息: {source_name}")
+                t0 = time.monotonic()
 
                 # 根据数据源类型获取股票信息
                 if source == ChinaDataSource.TUSHARE:
@@ -1631,17 +1668,31 @@ class DataSourceManager:
                         logger.warning(f"⚠️ [股票信息] {source_name}不支持股票信息获取")
                         continue
 
+                duration_ms = (time.monotonic() - t0) * 1000
+
                 # 检查是否获取到有效信息
                 if result.get('name') and result['name'] != f'股票{symbol}':
+                    if tracker:
+                        tracker.record_attempt(source_name, True, duration_ms)
+                        tracker.finish(source_name, True)
                     logger.info(f"✅ [数据来源: 备用数据源] 降级成功获取股票信息: {source_name}")
                     return result
                 else:
+                    if tracker:
+                        tracker.record_attempt(source_name, False, duration_ms,
+                                               error="invalid name in result", error_type="DataQualityError")
                     logger.warning(f"⚠️ [数据来源: {source_name}] 返回无效信息")
 
             except Exception as e:
+                duration_ms = (time.monotonic() - t0) * 1000
+                if tracker:
+                    tracker.record_attempt(source_name, False, duration_ms,
+                                           error=str(e), error_type=type(e).__name__)
                 logger.error(f"❌ 备用数据源{source_name}失败: {e}")
                 continue
 
+        if tracker:
+            tracker.finish(None, False)
         # 所有数据源都失败，返回默认值
         logger.error(f"❌ 所有数据源都无法获取{symbol}的股票信息")
         return {'symbol': symbol, 'name': f'股票{symbol}', 'source': 'unknown'}
@@ -2020,6 +2071,13 @@ class DataSourceManager:
         """基本面数据降级处理"""
         logger.error(f"🔄 {self.current_source.value}失败，尝试备用数据源获取基本面...")
 
+        tracker = None
+        if get_fallback_tracker:
+            tracker = get_fallback_tracker()
+            tracker.begin("fundamentals", self.current_source.value, symbol=symbol)
+            tracker.record_attempt(self.current_source.value, False, 0,
+                                   error="primary source failed", error_type="FallbackTriggered")
+
         # 🔥 从数据库获取数据源优先级顺序（根据股票代码识别市场）
         fallback_order = self._get_data_source_priority_order(symbol)
 
@@ -2027,6 +2085,7 @@ class DataSourceManager:
             if source != self.current_source and source in self.available_sources:
                 try:
                     logger.info(f"🔄 尝试备用数据源获取基本面: {source.value}")
+                    t0 = time.monotonic()
 
                     # 直接调用具体的数据源方法，避免递归
                     if source == ChinaDataSource.TUSHARE:
@@ -2036,16 +2095,30 @@ class DataSourceManager:
                     else:
                         continue
 
+                    duration_ms = (time.monotonic() - t0) * 1000
+
                     if result and "❌" not in result:
+                        if tracker:
+                            tracker.record_attempt(source.value, True, duration_ms)
+                            tracker.finish(source.value, True)
                         logger.info(f"✅ [数据来源: 备用数据源] 降级成功获取基本面: {source.value}")
                         return result
                     else:
+                        if tracker:
+                            tracker.record_attempt(source.value, False, duration_ms,
+                                                   error="returned error in result", error_type="DataQualityError")
                         logger.warning(f"⚠️ 备用数据源{source.value}返回错误结果")
 
                 except Exception as e:
+                    duration_ms = (time.monotonic() - t0) * 1000
+                    if tracker:
+                        tracker.record_attempt(source.value, False, duration_ms,
+                                               error=str(e), error_type=type(e).__name__)
                     logger.error(f"❌ 备用数据源{source.value}异常: {e}")
                     continue
 
+        if tracker:
+            tracker.finish(None, False)
         # 所有数据源都失败，生成基本分析
         logger.warning(f"⚠️ [数据来源: 生成分析] 所有数据源失败，生成基本分析: {symbol}")
         return self._generate_fundamentals_analysis(symbol)
@@ -2096,6 +2169,13 @@ class DataSourceManager:
         """新闻数据降级处理"""
         logger.error(f"🔄 {self.current_source.value}失败，尝试备用数据源获取新闻...")
 
+        tracker = None
+        if get_fallback_tracker:
+            tracker = get_fallback_tracker()
+            tracker.begin("news", self.current_source.value, symbol=symbol)
+            tracker.record_attempt(self.current_source.value, False, 0,
+                                   error="primary source failed", error_type="FallbackTriggered")
+
         # 🔥 从数据库获取数据源优先级顺序（根据股票代码识别市场）
         fallback_order = self._get_data_source_priority_order(symbol)
 
@@ -2103,6 +2183,7 @@ class DataSourceManager:
             if source != self.current_source and source in self.available_sources:
                 try:
                     logger.info(f"🔄 尝试备用数据源获取新闻: {source.value}")
+                    t0 = time.monotonic()
 
                     # 直接调用具体的数据源方法，避免递归
                     if source == ChinaDataSource.TUSHARE:
@@ -2112,16 +2193,30 @@ class DataSourceManager:
                     else:
                         continue
 
+                    duration_ms = (time.monotonic() - t0) * 1000
+
                     if result and len(result) > 0:
+                        if tracker:
+                            tracker.record_attempt(source.value, True, duration_ms)
+                            tracker.finish(source.value, True)
                         logger.info(f"✅ [数据来源: 备用数据源] 降级成功获取新闻: {source.value}")
                         return result
                     else:
+                        if tracker:
+                            tracker.record_attempt(source.value, False, duration_ms,
+                                                   error="empty result", error_type="EmptyResult")
                         logger.warning(f"⚠️ 备用数据源{source.value}未返回新闻")
 
                 except Exception as e:
+                    duration_ms = (time.monotonic() - t0) * 1000
+                    if tracker:
+                        tracker.record_attempt(source.value, False, duration_ms,
+                                               error=str(e), error_type=type(e).__name__)
                     logger.error(f"❌ 备用数据源{source.value}异常: {e}")
                     continue
 
+        if tracker:
+            tracker.finish(None, False)
         # 所有数据源都失败
         logger.warning(f"⚠️ [数据来源: 所有数据源失败] 无法获取新闻: {symbol or '市场新闻'}")
         return []

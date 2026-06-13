@@ -380,3 +380,33 @@ async def get_quotes_sync_status(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取同步状态失败: {str(e)}"
         )
+
+
+@router.get("/data-source-status", summary="获取数据源状态与回退健康信息")
+async def get_data_source_status(
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    获取数据源运行状态，包括:
+    - 各数据源适配器的可用性和优先级
+    - 近期回退事件的统计摘要
+    - 各数据源的成功率和平均响应时间
+    - 最近的回退事件详情
+    """
+    try:
+        from app.services.data_sources.manager import DataSourceManager
+
+        manager = DataSourceManager()
+        status_data = manager.get_status()
+
+        return {
+            "success": True,
+            "data": status_data,
+            "message": "获取数据源状态成功"
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取数据源状态失败: {str(e)}"
+        )

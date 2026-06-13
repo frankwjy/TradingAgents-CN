@@ -3,6 +3,7 @@ Data source manager that orchestrates multiple adapters with priority and option
 """
 from typing import List, Optional, Tuple, Dict
 import logging
+import time
 from datetime import datetime, timedelta
 import pandas as pd
 
@@ -10,6 +11,7 @@ from .base import DataSourceAdapter
 from .tushare_adapter import TushareAdapter
 from .akshare_adapter import AKShareAdapter
 from .baostock_adapter import BaoStockAdapter
+from .fallback_tracker import get_fallback_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +90,23 @@ class DataSourceManager:
             for adapter in self.adapters:
                 adapter._priority = adapter._get_default_priority()
 
+    def get_status(self) -> Dict:
+        """Return data source health and recent fallback activity."""
+        tracker = get_fallback_tracker()
+        adapters = []
+        for adapter in self.adapters:
+            adapters.append({
+                "name": adapter.name,
+                "priority": adapter.priority,
+                "available": adapter.is_available(),
+            })
+        return {
+            "adapters": adapters,
+            "fallback_summary": tracker.get_summary(),
+            "source_health": tracker.get_source_health(),
+            "recent_fallbacks": [e.to_dict() for e in tracker.recent_events(10)],
+        }
+
     def get_available_adapters(self) -> List[DataSourceAdapter]:
         available: List[DataSourceAdapter] = []
         for adapter in self.adapters:
@@ -126,15 +145,30 @@ class DataSourceManager:
             available_adapters = preferred + others
             logger.info(f"Reordered adapters: {[a.name for a in available_adapters]}")
 
+        primary = available_adapters[0].name if available_adapters else "none"
+        tracker = get_fallback_tracker()
+        tracker.begin("stock_list", primary)
+
         for adapter in available_adapters:
+            t0 = time.monotonic()
             try:
                 logger.info(f"Trying to fetch stock list from {adapter.name}")
                 df = adapter.get_stock_list()
+                duration_ms = (time.monotonic() - t0) * 1000
                 if df is not None and not df.empty:
+                    tracker.record_attempt(adapter.name, True, duration_ms)
+                    tracker.finish(adapter.name, True)
                     return df, adapter.name
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error="empty result", error_type="EmptyResult")
             except Exception as e:
+                duration_ms = (time.monotonic() - t0) * 1000
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error=str(e), error_type=type(e).__name__)
                 logger.error(f"Failed to fetch stock list from {adapter.name}: {e}")
                 continue
+
+        tracker.finish(None, False)
         return None, None
 
     def get_daily_basic_with_fallback(self, trade_date: str, preferred_sources: Optional[List[str]] = None) -> Tuple[Optional[pd.DataFrame], Optional[str]]:
@@ -158,15 +192,30 @@ class DataSourceManager:
             preferred.sort(key=lambda a: priority_map.get(a.name, 999))
             available_adapters = preferred + others
 
+        primary = available_adapters[0].name if available_adapters else "none"
+        tracker = get_fallback_tracker()
+        tracker.begin("daily_basic", primary)
+
         for adapter in available_adapters:
+            t0 = time.monotonic()
             try:
                 logger.info(f"Trying to fetch daily basic data from {adapter.name}")
                 df = adapter.get_daily_basic(trade_date)
+                duration_ms = (time.monotonic() - t0) * 1000
                 if df is not None and not df.empty:
+                    tracker.record_attempt(adapter.name, True, duration_ms)
+                    tracker.finish(adapter.name, True)
                     return df, adapter.name
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error="empty result", error_type="EmptyResult")
             except Exception as e:
+                duration_ms = (time.monotonic() - t0) * 1000
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error=str(e), error_type=type(e).__name__)
                 logger.error(f"Failed to fetch daily basic data from {adapter.name}: {e}")
                 continue
+
+        tracker.finish(None, False)
         return None, None
 
     def find_latest_trade_date_with_fallback(self, preferred_sources: Optional[List[str]] = None) -> Optional[str]:
@@ -189,15 +238,31 @@ class DataSourceManager:
             preferred.sort(key=lambda a: priority_map.get(a.name, 999))
             available_adapters = preferred + others
 
+        primary = available_adapters[0].name if available_adapters else "none"
+        tracker = get_fallback_tracker()
+        tracker.begin("trade_date", primary)
+
         for adapter in available_adapters:
+            t0 = time.monotonic()
             try:
                 trade_date = adapter.find_latest_trade_date()
+                duration_ms = (time.monotonic() - t0) * 1000
                 if trade_date:
+                    tracker.record_attempt(adapter.name, True, duration_ms)
+                    tracker.finish(adapter.name, True)
                     return trade_date
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error="no trade date", error_type="EmptyResult")
             except Exception as e:
+                duration_ms = (time.monotonic() - t0) * 1000
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error=str(e), error_type=type(e).__name__)
                 logger.error(f"Failed to find trade date from {adapter.name}: {e}")
                 continue
-        return (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+
+        fallback_date = (datetime.now() - timedelta(days=1)).strftime("%Y%m%d")
+        tracker.finish(None, False)
+        return fallback_date
 
     def get_realtime_quotes_with_fallback(self) -> Tuple[Optional[Dict], Optional[str]]:
         """
@@ -206,15 +271,30 @@ class DataSourceManager:
         quotes_dict 形如 { '000001': {'close': 10.0, 'pct_chg': 1.2, 'amount': 1.2e8}, ... }
         """
         available_adapters = self.get_available_adapters()
+        primary = available_adapters[0].name if available_adapters else "none"
+        tracker = get_fallback_tracker()
+        tracker.begin("realtime_quotes", primary)
+
         for adapter in available_adapters:
+            t0 = time.monotonic()
             try:
                 logger.info(f"Trying to fetch realtime quotes from {adapter.name}")
                 data = adapter.get_realtime_quotes()
+                duration_ms = (time.monotonic() - t0) * 1000
                 if data:
+                    tracker.record_attempt(adapter.name, True, duration_ms)
+                    tracker.finish(adapter.name, True)
                     return data, adapter.name
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error="empty result", error_type="EmptyResult")
             except Exception as e:
+                duration_ms = (time.monotonic() - t0) * 1000
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error=str(e), error_type=type(e).__name__)
                 logger.error(f"Failed to fetch realtime quotes from {adapter.name}: {e}")
                 continue
+
+        tracker.finish(None, False)
         return None, None
 
 
@@ -282,27 +362,57 @@ class DataSourceManager:
     def get_kline_with_fallback(self, code: str, period: str = "day", limit: int = 120, adj: Optional[str] = None) -> Tuple[Optional[List[Dict]], Optional[str]]:
         """按优先级尝试获取K线，返回(items, source)"""
         available_adapters = self.get_available_adapters()
+        primary = available_adapters[0].name if available_adapters else "none"
+        tracker = get_fallback_tracker()
+        tracker.begin("kline", primary, symbol=code)
+
         for adapter in available_adapters:
+            t0 = time.monotonic()
             try:
                 logger.info(f"Trying to fetch kline from {adapter.name}")
                 items = adapter.get_kline(code=code, period=period, limit=limit, adj=adj)
+                duration_ms = (time.monotonic() - t0) * 1000
                 if items:
+                    tracker.record_attempt(adapter.name, True, duration_ms)
+                    tracker.finish(adapter.name, True)
                     return items, adapter.name
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error="empty result", error_type="EmptyResult")
             except Exception as e:
+                duration_ms = (time.monotonic() - t0) * 1000
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error=str(e), error_type=type(e).__name__)
                 logger.error(f"Failed to fetch kline from {adapter.name}: {e}")
                 continue
+
+        tracker.finish(None, False)
         return None, None
 
     def get_news_with_fallback(self, code: str, days: int = 2, limit: int = 50, include_announcements: bool = True) -> Tuple[Optional[List[Dict]], Optional[str]]:
         """按优先级尝试获取新闻与公告，返回(items, source)"""
         available_adapters = self.get_available_adapters()
+        primary = available_adapters[0].name if available_adapters else "none"
+        tracker = get_fallback_tracker()
+        tracker.begin("news", primary, symbol=code)
+
         for adapter in available_adapters:
+            t0 = time.monotonic()
             try:
                 logger.info(f"Trying to fetch news from {adapter.name}")
                 items = adapter.get_news(code=code, days=days, limit=limit, include_announcements=include_announcements)
+                duration_ms = (time.monotonic() - t0) * 1000
                 if items:
+                    tracker.record_attempt(adapter.name, True, duration_ms)
+                    tracker.finish(adapter.name, True)
                     return items, adapter.name
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error="empty result", error_type="EmptyResult")
             except Exception as e:
+                duration_ms = (time.monotonic() - t0) * 1000
+                tracker.record_attempt(adapter.name, False, duration_ms,
+                                       error=str(e), error_type=type(e).__name__)
                 logger.error(f"Failed to fetch news from {adapter.name}: {e}")
                 continue
+
+        tracker.finish(None, False)
         return None, None

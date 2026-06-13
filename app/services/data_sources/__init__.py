@@ -7,4 +7,5 @@ from .tushare_adapter import TushareAdapter
 from .akshare_adapter import AKShareAdapter
 from .baostock_adapter import BaoStockAdapter
 from .manager import DataSourceManager
+from .fallback_tracker import FallbackTracker, FallbackEvent, FallbackAttempt, get_fallback_tracker
 
