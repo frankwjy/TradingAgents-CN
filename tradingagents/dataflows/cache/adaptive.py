@@ -9,6 +9,7 @@ import json
 import pickle
 import hashlib
 import logging
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
@@ -41,8 +42,28 @@ class AdaptiveCacheSystem:
         self.fallback_enabled = self.cache_config["fallback_enabled"]
         
         self.logger.info(f"自适应缓存系统初始化 - 主要后端: {self.primary_backend}")
+
+        # 创建 MongoDB TTL 索引（expires_at 字段自动过期）
+        self._ensure_mongodb_ttl_index()
     
-    def _get_cache_key(self, symbol: str, start_date: str = "", end_date: str = "", 
+    def _ensure_mongodb_ttl_index(self):
+        """确保 MongoDB cache 集合有 TTL 索引"""
+        mongodb_client = self.db_manager.get_mongodb_client()
+        if not mongodb_client:
+            return
+        try:
+            db = mongodb_client.tradingagents
+            collection = db.cache
+            collection.create_index(
+                [("expires_at", 1)],
+                expireAfterSeconds=0,
+                name="ttl_expires_at"
+            )
+            self.logger.debug("MongoDB cache TTL 索引已就绪")
+        except Exception as e:
+            self.logger.warning(f"创建 MongoDB TTL 索引失败: {e}")
+
+    def _get_cache_key(self, symbol: str, start_date: str = "", end_date: str = "",
                       data_source: str = "default", data_type: str = "stock_data") -> str:
         """生成缓存键"""
         key_data = f"{symbol}_{start_date}_{end_date}_{data_source}_{data_type}"
@@ -70,7 +91,7 @@ class AdaptiveCacheSystem:
         return datetime.now() < expiry_time
     
     def _save_to_file(self, cache_key: str, data: Any, metadata: Dict) -> bool:
-        """保存到文件缓存"""
+        """保存到文件缓存（原子写入）"""
         try:
             cache_file = self.cache_dir / f"{cache_key}.pkl"
             cache_data = {
@@ -79,13 +100,22 @@ class AdaptiveCacheSystem:
                 'timestamp': datetime.now(),
                 'backend': 'file'
             }
-            
-            with open(cache_file, 'wb') as f:
-                pickle.dump(cache_data, f)
-            
+
+            fd, tmp_path = tempfile.mkstemp(dir=str(self.cache_dir), suffix='.tmp')
+            try:
+                with os.fdopen(fd, 'wb') as f:
+                    pickle.dump(cache_data, f)
+                os.replace(tmp_path, str(cache_file))
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
+
             self.logger.debug(f"文件缓存保存成功: {cache_key}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"文件缓存保存失败: {e}")
             return False
