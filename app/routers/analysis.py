@@ -148,6 +148,20 @@ async def get_task_status_new(
                 if start_time:
                     elapsed_time = (current_time - start_time).total_seconds()
 
+                # 使用统计算法估算时间
+                from app.services.memory_state_manager import calculate_estimated_duration_static
+                params = task_result.get("parameters", {})
+                research_depth = params.get("research_depth", "标准") if params else "标准"
+                selected_analysts = params.get("selected_analysts", []) if params else []
+                llm_provider = params.get("llm_provider", "dashscope") if params else "dashscope"
+                estimated_total = calculate_estimated_duration_static(research_depth, selected_analysts, llm_provider)
+
+                if status in ("completed", "failed", "cancelled"):
+                    remaining_time = 0
+                    estimated_total = elapsed_time
+                else:
+                    remaining_time = max(0, estimated_total - elapsed_time)
+
                 status_data = {
                     "task_id": task_id,
                     "status": status,
@@ -157,8 +171,8 @@ async def get_task_status_new(
                     "start_time": start_time,
                     "end_time": task_result.get("completed_at"),
                     "elapsed_time": elapsed_time,
-                    "remaining_time": 0,  # 无法准确估算
-                    "estimated_total_time": 0,
+                    "remaining_time": remaining_time,
+                    "estimated_total_time": estimated_total,
                     "symbol": task_result.get("symbol") or task_result.get("stock_code"),
                     "stock_code": task_result.get("symbol") or task_result.get("stock_code"),  # 兼容字段
                     "stock_symbol": task_result.get("symbol") or task_result.get("stock_code"),

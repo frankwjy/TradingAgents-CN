@@ -70,6 +70,11 @@ export interface AnalysisTask {
   retry_count: number
   max_retries: number
   last_error?: string
+
+  // 时间估算
+  elapsed_time?: number
+  remaining_time?: number
+  estimated_total_time?: number
 }
 
 // 分析批次
@@ -218,6 +223,9 @@ export interface TaskProgress {
   progress: number
   message?: string
   updated_at: string
+  elapsed_time?: number
+  remaining_time?: number
+  estimated_total_time?: number
 }
 
 // 批次进度信息
