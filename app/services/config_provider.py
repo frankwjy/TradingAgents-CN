@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Dict, Optional
+import os
 
 from app.services.config_service import config_service
 
@@ -17,8 +17,8 @@ class ConfigProvider:
 
     def __init__(self, ttl_seconds: int = 60) -> None:
         self._ttl = timedelta(seconds=ttl_seconds)
-        self._cache_settings: dict[str, Any] | None = None
-        self._cache_time: datetime | None = None
+        self._cache_settings: Optional[Dict[str, Any]] = None
+        self._cache_time: Optional[datetime] = None
 
     def invalidate(self) -> None:
         self._cache_settings = None
@@ -31,13 +31,13 @@ class ConfigProvider:
             and __import__("datetime").datetime.now(__import__("datetime").timezone.utc) - self._cache_time < self._ttl
         )
 
-    async def get_effective_system_settings(self) -> dict[str, Any]:
+    async def get_effective_system_settings(self) -> Dict[str, Any]:
         if self._is_cache_valid():
             return dict(self._cache_settings or {})
 
         # Load DB settings
         cfg = await config_service.get_system_config()
-        base: dict[str, Any] = {}
+        base: Dict[str, Any] = {}
         if cfg and getattr(cfg, "system_settings", None):
             try:
                 base = dict(cfg.system_settings)
@@ -47,7 +47,7 @@ class ConfigProvider:
         # Merge ENV over DB (best-effort heuristics):
         # - if ENV with exact key exists -> override
         # - try uppercased and dot/space to underscore variants
-        merged: dict[str, Any] = dict(base)
+        merged: Dict[str, Any] = dict(base)
         for k, v in list(base.items()):
             candidates = [
                 k,
@@ -69,8 +69,7 @@ class ConfigProvider:
         self._cache_settings = dict(merged)
         self._cache_time = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
         return dict(merged)
-
-    async def get_system_settings_meta(self) -> dict[str, dict[str, Any]]:
+    async def get_system_settings_meta(self) -> Dict[str, Dict[str, Any]]:
         """Return metadata for system settings keys including sensitivity, editability and source.
         Fields per key:
           - sensitive: bool (by keyword patterns)
@@ -80,14 +79,14 @@ class ConfigProvider:
         """
         # Load DB settings raw
         cfg = await config_service.get_system_config()
-        db_settings: dict[str, Any] = {}
+        db_settings: Dict[str, Any] = {}
         if cfg and getattr(cfg, "system_settings", None):
             try:
                 db_settings = dict(cfg.system_settings)
             except Exception:
                 db_settings = {}
 
-        def _env_override_for_key(key: str) -> Any | None:
+        def _env_override_for_key(key: str) -> Optional[Any]:
             candidates = [
                 key,
                 key.upper(),
@@ -99,7 +98,7 @@ class ConfigProvider:
             return None
 
         sens_patterns = ("key", "secret", "password", "token", "client_secret")
-        meta: dict[str, dict[str, Any]] = {}
+        meta: Dict[str, Dict[str, Any]] = {}
         for k, v in db_settings.items():
             env_v = _env_override_for_key(k)
             source = "environment" if env_v is not None else ("database" if v is not None else "default")
@@ -116,5 +115,7 @@ class ConfigProvider:
         return meta
 
 
+
 # Module-level singleton
 provider = ConfigProvider(ttl_seconds=60)
+
