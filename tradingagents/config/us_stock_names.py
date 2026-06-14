@@ -46,6 +46,27 @@ _DEFAULT_CONFIG: Dict = {
     "UBER": {"en": "Uber", "zh": "Uber", "keywords": ["uber"]},
     "ROKU": {"en": "Roku", "zh": "Roku", "keywords": ["roku"]},
     "PINS": {"en": "Pinterest", "zh": "Pinterest", "keywords": ["pinterest"]},
+    # Major Index ETFs
+    "SPY": {"en": "SPDR S&P 500 ETF Trust", "zh": "标普500 ETF", "keywords": ["spy", "spdr", "s&p 500", "sp500"]},
+    "QQQ": {"en": "Invesco QQQ Trust", "zh": "纳斯达克100 ETF", "keywords": ["qqq", "nasdaq 100", "invesco"]},
+    "DIA": {"en": "SPDR Dow Jones Industrial Average ETF", "zh": "道琼斯 ETF", "keywords": ["dia", "dow jones", "djia"]},
+    "IWM": {"en": "iShares Russell 2000 ETF", "zh": "罗素2000 ETF", "keywords": ["iwm", "russell 2000", "ishares"]},
+    "VTI": {"en": "Vanguard Total Stock Market ETF", "zh": "全股市 ETF", "keywords": ["vti", "vanguard", "total stock market"]},
+    "VO": {"en": "Vanguard Mid-Cap ETF", "zh": "中盘股 ETF", "keywords": ["vo", "vanguard", "mid-cap"]},
+    "VB": {"en": "Vanguard Small-Cap ETF", "zh": "小盘股 ETF", "keywords": ["vb", "vanguard", "small-cap"]},
+    "VGT": {"en": "Vanguard Information Technology ETF", "zh": "信息技术 ETF", "keywords": ["vgt", "vanguard", "information technology"]},
+    "XLF": {"en": "Financial Select Sector SPDR Fund", "zh": "金融板块 ETF", "keywords": ["xlf", "financial", "spdr"]},
+    "XLE": {"en": "Energy Select Sector SPDR Fund", "zh": "能源板块 ETF", "keywords": ["xle", "energy", "spdr"]},
+    "XLK": {"en": "Technology Select Sector SPDR Fund", "zh": "科技板块 ETF", "keywords": ["xlk", "technology", "spdr"]},
+    "XLV": {"en": "Health Care Select Sector SPDR Fund", "zh": "医疗保健 ETF", "keywords": ["xlv", "health care", "spdr"]},
+    "ARKK": {"en": "ARK Innovation ETF", "zh": "ARK创新 ETF", "keywords": ["arkk", "ark", "innovation", "cathie wood"]},
+    "SOXX": {"en": "iShares Semiconductor ETF", "zh": "半导体 ETF", "keywords": ["soxx", "semiconductor", "ishares"]},
+    "IBB": {"en": "iShares Biotechnology ETF", "zh": "生物科技 ETF", "keywords": ["ibb", "biotechnology", "ishares"]},
+    "GLD": {"en": "SPDR Gold Shares", "zh": "黄金 ETF", "keywords": ["gld", "gold", "spdr"]},
+    "SLV": {"en": "iShares Silver Trust", "zh": "白银 ETF", "keywords": ["slv", "silver", "ishares"]},
+    "USO": {"en": "United States Oil Fund", "zh": "石油 ETF", "keywords": ["uso", "oil", "crude"]},
+    "TLT": {"en": "iShares 20+ Year Treasury Bond ETF", "zh": "长期国债 ETF", "keywords": ["tlt", "treasury", "bond", "20 year"]},
+    "QQQM": {"en": "Invesco NASDAQ 100 ETF", "zh": "纳斯达克100 ETF (低成本)", "keywords": ["qqqm", "nasdaq 100", "invesco", "low cost"]},
 }
 
 _config: Optional[Dict] = None
