@@ -13,7 +13,7 @@ def get_version() -> str:
             return version_file.read_text(encoding='utf-8').strip()
     except Exception:
         pass
-    return "0.1.16"  # 默认版本号
+    return "1.0.1"  # 默认版本号
 
 
 @router.get("/health")
