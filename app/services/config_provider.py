@@ -12,17 +12,25 @@ class ConfigProvider:
 
     - Priority: ENV > DB
     - Cache TTL: configurable (default 60s)
-    - Invalidate on writes: caller should invoke `invalidate()` after writes
+    - Auto-invalidation: register_config_listener() wires into the config event bus
     """
 
     def __init__(self, ttl_seconds: int = 60) -> None:
         self._ttl = timedelta(seconds=ttl_seconds)
         self._cache_settings: Optional[Dict[str, Any]] = None
         self._cache_time: Optional[datetime] = None
+        self._event_token: Optional[str] = None
 
     def invalidate(self) -> None:
         self._cache_settings = None
         self._cache_time = None
+
+    def register_config_listener(self) -> None:
+        """Subscribe to config change events for automatic cache invalidation."""
+        if self._event_token is not None:
+            return  # Already registered
+        from app.services.config_events import config_event_bus
+        self._event_token = config_event_bus.subscribe(lambda _config: self.invalidate())
 
     def _is_cache_valid(self) -> bool:
         return (
@@ -118,4 +126,5 @@ class ConfigProvider:
 
 # Module-level singleton
 provider = ConfigProvider(ttl_seconds=60)
+provider.register_config_listener()
 

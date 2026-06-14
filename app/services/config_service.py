@@ -30,6 +30,15 @@ class ConfigService:
     def __init__(self, db_manager=None):
         self.db = None
         self.db_manager = db_manager
+        # Configuration caching
+        self._cache_config: Optional[SystemConfig] = None
+        self._cache_time: Optional[datetime] = None
+        self._cache_ttl_seconds: int = 30
+
+    def invalidate_cache(self) -> None:
+        """Invalidate the cached configuration, forcing next read to hit the database."""
+        self._cache_config = None
+        self._cache_time = None
 
     async def _get_db(self):
         """获取数据库连接"""
@@ -388,9 +397,15 @@ class ConfigService:
             return False
 
     async def get_system_config(self) -> Optional[SystemConfig]:
-        """获取系统配置 - 优先从数据库获取最新数据"""
+        """获取系统配置 - 使用TTL缓存优化读取性能"""
+        # Check cache first
+        if self._cache_config is not None and self._cache_time is not None:
+            elapsed = (now_tz() - self._cache_time).total_seconds()
+            if elapsed < self._cache_ttl_seconds:
+                logger.debug("Config cache hit (age=%.1fs, ttl=%ds)", elapsed, self._cache_ttl_seconds)
+                return self._cache_config
+
         try:
-            # 直接从数据库获取最新配置，避免缓存问题
             db = await self._get_db()
             config_collection = db.system_configs
 
@@ -400,24 +415,28 @@ class ConfigService:
             )
 
             if config_data:
-                logger.debug(f"从数据库获取配置，版本: {config_data.get('version', 0)}, LLM配置数量: {len(config_data.get('llm_configs', []))}")
-                return SystemConfig(**config_data)
+                logger.info("从数据库获取配置，版本: %s, LLM配置数量: %s",
+                            config_data.get('version', 0), len(config_data.get('llm_configs', [])))
+                config = SystemConfig(**config_data)
+                self._cache_config = config
+                self._cache_time = now_tz()
+                return config
 
             # 如果没有配置，创建默认配置
             logger.warning("数据库中没有配置，创建默认配置")
             return await self._create_default_config()
 
         except Exception as e:
-            logger.error(f"从数据库获取配置失败: {e}")
+            logger.error("从数据库获取配置失败: %s", e, exc_info=True)
 
             # 作为最后的回退，尝试从统一配置管理器获取
             try:
                 unified_system_config = await unified_config.get_unified_system_config()
                 if unified_system_config:
-                    logger.debug("回退到统一配置管理器")
+                    logger.info("回退到统一配置管理器")
                     return unified_system_config
             except Exception as e2:
-                logger.debug(f"从统一配置获取也失败: {e2}")
+                logger.error("从统一配置获取也失败: %s", e2)
 
             return None
     
@@ -544,7 +563,7 @@ class ConfigService:
     async def save_system_config(self, config: SystemConfig) -> bool:
         """保存系统配置到数据库"""
         try:
-            logger.debug(f"开始保存配置，LLM配置数量: {len(config.llm_configs)}")
+            logger.info("开始保存配置，LLM配置数量: %s", len(config.llm_configs))
 
             # 保存到数据库
             db = await self._get_db()
@@ -579,15 +598,19 @@ class ConfigService:
                 logger.warning(f"不包含 deep_analysis_model")
 
             insert_result = await config_collection.insert_one(config_dict)
-            logger.debug(f"新配置ID: {insert_result.inserted_id}")
+            logger.info("新配置ID: %s", insert_result.inserted_id)
 
             # 验证保存结果
             saved_config = await config_collection.find_one({"_id": insert_result.inserted_id})
             if saved_config:
-                logger.debug(f"配置保存成功，验证LLM配置数量: {len(saved_config.get('llm_configs', []))}")
+                logger.info("配置保存成功，验证LLM配置数量: %s", len(saved_config.get('llm_configs', [])))
 
-                # 暂时跳过统一配置同步，避免冲突
-                # unified_config.sync_to_legacy_format(config)
+                # Invalidate cache so next read fetches fresh data
+                self.invalidate_cache()
+
+                # Notify listeners of config change
+                from app.services.config_events import config_event_bus
+                config_event_bus.notify(config)
 
                 return True
             else:
