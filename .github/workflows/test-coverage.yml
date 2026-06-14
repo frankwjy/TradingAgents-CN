@@ -28,7 +28,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest --cov=tradingagents --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=60
+          pytest tests/ --cov=tradingagents --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=60
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
