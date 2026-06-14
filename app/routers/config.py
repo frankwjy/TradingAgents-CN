@@ -30,7 +30,7 @@ from app.core.response import ok
 
 
 router = APIRouter(prefix="/config", tags=["配置管理"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 # ===== 配置重载端点 =====
@@ -159,7 +159,7 @@ def _sanitize_datasource_configs(items):
 
         return result
     except Exception as e:
-        print(f"⚠️ 脱敏数据源配置失败: {e}")
+        logger.warning("sanitize_datasource_configs_failed", extra={"error": str(e)})
         return items
 
 def _sanitize_database_configs(items):
@@ -523,9 +523,7 @@ async def fetch_provider_models(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"获取模型列表失败: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error("get_model_list_failed", extra={"error": str(e)}, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取模型列表失败: {str(e)}"

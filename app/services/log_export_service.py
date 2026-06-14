@@ -12,7 +12,7 @@ from typing import List, Optional, Dict, Any
 import re
 import json
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 class LogExportService:

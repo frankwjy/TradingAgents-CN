@@ -13,7 +13,7 @@ from app.routers.auth_db import get_current_user
 from app.services.log_export_service import get_log_export_service
 
 router = APIRouter(prefix="/system-logs", tags=["系统日志"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 # 请求模型

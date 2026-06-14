@@ -18,7 +18,7 @@ from app.core.database import get_mongo_db
 from app.core.response import ok
 from app.services.unified_stock_service import UnifiedStockService
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/markets", tags=["multi-market"])
 

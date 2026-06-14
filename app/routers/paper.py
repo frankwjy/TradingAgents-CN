@@ -10,7 +10,7 @@ from app.core.database import get_mongo_db
 from app.core.response import ok
 
 router = APIRouter(prefix="/paper", tags=["paper"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 # 每个市场的初始资金配置

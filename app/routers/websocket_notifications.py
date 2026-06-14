@@ -12,7 +12,7 @@ from datetime import datetime
 from app.services.auth_service import AuthService
 
 router = APIRouter()
-logger = logging.getLogger("webapi.websocket")
+logger = logging.getLogger(__name__)
 
 # 🔥 全局 WebSocket 连接管理器
 class ConnectionManager:

@@ -13,7 +13,7 @@ from app.models.screening import (
 )
 
 router = APIRouter(tags=["screening"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 # 筛选字段配置响应模型
 class FieldConfigResponse(BaseModel):

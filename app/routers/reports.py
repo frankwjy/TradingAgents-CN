@@ -17,7 +17,7 @@ from ..utils.timezone import to_config_tz
 from ..core.singleton import BoundedCache
 import logging
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 # 有界股票名称缓存（最大 5000 条，1 小时 TTL）
 _stock_name_cache = BoundedCache(max_size=5000, ttl=3600)

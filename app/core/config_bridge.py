@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-logger = logging.getLogger("app.config_bridge")
+logger = logging.getLogger(__name__)
 
 
 def bridge_config_to_env():
@@ -460,34 +460,27 @@ def _bridge_system_settings() -> int:
 
         # 同步到文件系统（供 unified_config 使用）
         try:
-            print(f"🔄 [config_bridge] 准备同步系统设置到文件系统")
-            print(f"🔄 [config_bridge] system_settings 包含 {len(system_settings)} 项")
+            logger.debug("preparing_sync_system_settings_to_fs", extra={"settings_count": len(system_settings)})
 
-            # 检查关键字段
             if "quick_analysis_model" in system_settings:
-                print(f"  ✓ [config_bridge] 包含 quick_analysis_model: {system_settings['quick_analysis_model']}")
+                logger.debug("quick_analysis_model_present", extra={"value": system_settings['quick_analysis_model']})
             else:
-                print(f"  ⚠️  [config_bridge] 不包含 quick_analysis_model")
+                logger.debug("quick_analysis_model_missing")
 
             if "deep_analysis_model" in system_settings:
-                print(f"  ✓ [config_bridge] 包含 deep_analysis_model: {system_settings['deep_analysis_model']}")
+                logger.debug("deep_analysis_model_present", extra={"value": system_settings['deep_analysis_model']})
             else:
-                print(f"  ⚠️  [config_bridge] 不包含 deep_analysis_model")
+                logger.debug("deep_analysis_model_missing")
 
             from app.core.unified_config import unified_config
             result = unified_config.save_system_settings(system_settings)
 
             if result:
-                logger.info(f"  ✓ 系统设置已同步到文件系统")
-                print(f"✅ [config_bridge] 系统设置同步成功")
+                logger.info("system_settings_synced_to_fs")
             else:
-                logger.warning(f"  ⚠️  系统设置同步返回 False")
-                print(f"⚠️  [config_bridge] 系统设置同步返回 False")
+                logger.warning("system_settings_sync_returned_false")
         except Exception as e:
-            logger.warning(f"  ⚠️  同步系统设置到文件系统失败: {e}")
-            print(f"❌ [config_bridge] 同步系统设置到文件系统失败: {e}")
-            import traceback
-            print(traceback.format_exc())
+            logger.warning("sync_system_settings_to_fs_failed", extra={"error": str(e)}, exc_info=True)
 
         return bridged_count
 
