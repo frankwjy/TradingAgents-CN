@@ -11,6 +11,8 @@ import logging
 from dataclasses import dataclass, asdict
 from enum import Enum
 
+from app.core.mapping_loader import get_mapping_loader
+
 logger = logging.getLogger(__name__)
 
 class TaskStatus(Enum):
@@ -101,11 +103,12 @@ def calculate_estimated_duration_static(
     算法与 RedisProgressTracker._get_base_total_time() 保持一致，
     基于实际测试数据（docs/time_estimation_optimization.md）。
     """
-    depth_map = {"快速": 1, "基础": 2, "标准": 3, "深度": 4, "全面": 5}
+    loader = get_mapping_loader()
+    depth_map = loader.get_depth_to_numeric()
     d = depth_map.get(research_depth, 3)
 
-    base_time_per_depth = {1: 150, 2: 180, 3: 240, 4: 330, 5: 480}
-    base_time = base_time_per_depth.get(d, 240)
+    base_time_config = loader.get_base_time_per_depth()
+    base_time = base_time_config.get(d, 240)
 
     analyst_count = len(selected_analysts) if selected_analysts else 1
     if analyst_count <= 1:
@@ -119,12 +122,8 @@ def calculate_estimated_duration_static(
     else:
         analyst_multiplier = 2.4 + (analyst_count - 4) * 0.3
 
-    model_mult = {
-        'qwen': 1.0,
-        'dashscope': 1.0,
-        'deepseek': 0.8,
-        'google': 1.2,
-    }.get(llm_provider, 1.0)
+    model_mult_config = loader.get_model_time_multiplier()
+    model_mult = model_mult_config.get(llm_provider, 1.0)
 
     return base_time * analyst_multiplier * model_mult
 
