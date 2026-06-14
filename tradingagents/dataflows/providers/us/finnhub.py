@@ -3,8 +3,8 @@ import os
 
 # 导入日志模块
 from tradingagents.utils.logging_manager import get_logger
-logger = get_logger('agents')
 
+logger = get_logger("agents")
 
 
 def get_data_in_range(ticker, start_date, end_date, data_type, data_dir, period=None):
@@ -26,17 +26,15 @@ def get_data_in_range(ticker, start_date, end_date, data_type, data_dir, period=
             f"{ticker}_{period}_data_formatted.json",
         )
     else:
-        data_path = os.path.join(
-            data_dir, "finnhub_data", data_type, f"{ticker}_data_formatted.json"
-        )
+        data_path = os.path.join(data_dir, "finnhub_data", data_type, f"{ticker}_data_formatted.json")
 
     try:
         if not os.path.exists(data_path):
             logger.warning(f"⚠️ [DEBUG] 数据文件不存在: {data_path}")
-            logger.warning(f"⚠️ [DEBUG] 请确保已下载相关数据或检查数据目录配置")
+            logger.warning("⚠️ [DEBUG] 请确保已下载相关数据或检查数据目录配置")
             return {}
-        
-        with open(data_path, "r", encoding="utf-8") as f:
+
+        with open(data_path, encoding="utf-8") as f:
             data = json.load(f)
     except FileNotFoundError:
         logger.error(f"❌ [ERROR] 文件未找到: {data_path}")

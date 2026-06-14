@@ -1,6 +1,7 @@
 import argparse
+from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any
 
 from pymongo import MongoClient
 
@@ -12,8 +13,8 @@ def _now() -> str:
     return datetime.utcnow().isoformat()
 
 
-def _merge_aliases(*values: Iterable[str]) -> List[str]:
-    merged: List[str] = []
+def _merge_aliases(*values: Iterable[str]) -> list[str]:
+    merged: list[str] = []
     seen = set()
     for value in values:
         for item in value or []:
@@ -28,20 +29,20 @@ def _merge_aliases(*values: Iterable[str]) -> List[str]:
     return merged
 
 
-def _pick_value(primary: Dict[str, Any], secondary: Dict[str, Any], key: str):
+def _pick_value(primary: dict[str, Any], secondary: dict[str, Any], key: str):
     primary_value = primary.get(key)
     if primary_value not in (None, "", [], {}):
         return primary_value
     return secondary.get(key)
 
 
-def _split_csv(value: Optional[str]) -> List[str]:
+def _split_csv(value: str | None) -> list[str]:
     if not value:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-def _should_run(section: str, include: Optional[Sequence[str]], exclude: Sequence[str]) -> bool:
+def _should_run(section: str, include: Sequence[str] | None, exclude: Sequence[str]) -> bool:
     if include and section not in include:
         return False
     if section in exclude:
@@ -49,10 +50,10 @@ def _should_run(section: str, include: Optional[Sequence[str]], exclude: Sequenc
     return True
 
 
-def normalize_llm_providers(db, dry_run: bool = False, fix_indexes: bool = False) -> Dict[str, Any]:
+def normalize_llm_providers(db, dry_run: bool = False, fix_indexes: bool = False) -> dict[str, Any]:
     coll = db.llm_providers
     docs = list(coll.find())
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for doc in docs:
         canonical = normalize_provider_key(doc.get("name"))
         grouped.setdefault(canonical, []).append(doc)
@@ -81,7 +82,11 @@ def normalize_llm_providers(db, dry_run: bool = False, fix_indexes: bool = False
             "default_base_url": _pick_value(preferred, {}, "default_base_url"),
             "api_key": _pick_value(preferred, {}, "api_key"),
             "api_secret": _pick_value(preferred, {}, "api_secret"),
-            "aliases": [a for a in _merge_aliases(aliases, preferred.get("aliases", [])) if normalize_provider_key(a) != canonical],
+            "aliases": [
+                a
+                for a in _merge_aliases(aliases, preferred.get("aliases", []))
+                if normalize_provider_key(a) != canonical
+            ],
             "extra_config": preferred.get("extra_config", {}),
             "is_aggregator": preferred.get("is_aggregator", False),
             "aggregator_type": preferred.get("aggregator_type"),
@@ -108,7 +113,7 @@ def normalize_llm_providers(db, dry_run: bool = False, fix_indexes: bool = False
     return {"providers_total": len(docs), "providers_renamed": renamed, "providers_merged": merged}
 
 
-def normalize_system_configs(db, dry_run: bool = False) -> Dict[str, Any]:
+def normalize_system_configs(db, dry_run: bool = False) -> dict[str, Any]:
     coll = db.system_configs
     docs = list(coll.find())
     changed_docs = 0
@@ -136,10 +141,10 @@ def normalize_system_configs(db, dry_run: bool = False) -> Dict[str, Any]:
     return {"system_configs_changed": changed_docs, "llm_config_entries_changed": changed_entries}
 
 
-def normalize_model_catalog(db, dry_run: bool = False, fix_indexes: bool = False) -> Dict[str, Any]:
+def normalize_model_catalog(db, dry_run: bool = False, fix_indexes: bool = False) -> dict[str, Any]:
     coll = db.model_catalog
     docs = list(coll.find())
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for doc in docs:
         canonical = normalize_provider_key(doc.get("provider"))
         grouped.setdefault(canonical, []).append(doc)
@@ -147,7 +152,7 @@ def normalize_model_catalog(db, dry_run: bool = False, fix_indexes: bool = False
     merged_catalogs = 0
     for canonical, items in grouped.items():
         preferred = next((doc for doc in items if doc.get("provider") == canonical), items[0])
-        models_by_name: Dict[str, Dict[str, Any]] = {}
+        models_by_name: dict[str, dict[str, Any]] = {}
         for doc in items:
             for model in doc.get("models", []):
                 model_name = model.get("name")
@@ -178,12 +183,14 @@ def normalize_model_catalog(db, dry_run: bool = False, fix_indexes: bool = False
     return {"model_catalog_groups": len(grouped), "model_catalog_merged": merged_catalogs}
 
 
-def main(argv: Optional[Iterable[str]] = None) -> int:
+def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="normalize_provider_keys")
     parser.add_argument("--mongo-uri", default=settings.MONGO_URI)
     parser.add_argument("--database", default=settings.MONGO_DB)
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--include", default="", help="Comma-separated sections: providers,system_configs,model_catalog")
+    parser.add_argument(
+        "--include", default="", help="Comma-separated sections: providers,system_configs,model_catalog"
+    )
     parser.add_argument("--exclude", default="", help="Comma-separated sections to skip")
     parser.add_argument("--fix-indexes", action="store_true", help="Recreate unique indexes for normalized keys")
     args = parser.parse_args(list(argv) if argv is not None else None)
@@ -194,7 +201,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     client = MongoClient(args.mongo_uri)
     try:
         db = client[args.database]
-        summary: Dict[str, Any] = {
+        summary: dict[str, Any] = {
             "database": args.database,
             "dry_run": args.dry_run,
             "include": include or ["providers", "system_configs", "model_catalog"],

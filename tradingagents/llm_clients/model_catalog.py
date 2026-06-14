@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
-
-ModelOption = Tuple[str, str]
-ProviderModeOptions = Dict[str, Dict[str, List[ModelOption]]]
+ModelOption = tuple[str, str]
+ProviderModeOptions = dict[str, dict[str, list[ModelOption]]]
 
 
 MODEL_OPTIONS: ProviderModeOptions = {
@@ -132,19 +130,12 @@ MODEL_OPTIONS: ProviderModeOptions = {
 }
 
 
-def get_model_options(provider: str, mode: str) -> List[ModelOption]:
+def get_model_options(provider: str, mode: str) -> list[ModelOption]:
     return MODEL_OPTIONS[provider.lower()][mode]
 
 
-def get_known_models() -> Dict[str, List[str]]:
+def get_known_models() -> dict[str, list[str]]:
     return {
-        provider: sorted(
-            {
-                value
-                for options in mode_options.values()
-                for _, value in options
-                if value != "custom"
-            }
-        )
+        provider: sorted({value for options in mode_options.values() for _, value in options if value != "custom"})
         for provider, mode_options in MODEL_OPTIONS.items()
     }

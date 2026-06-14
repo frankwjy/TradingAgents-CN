@@ -1,12 +1,12 @@
 """
 标签管理 API
 """
-from typing import Optional, List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from app.routers.auth_db import get_current_user
 from app.core.response import ok
+from app.routers.auth_db import get_current_user
 from app.services.tags_service import tags_service
 
 router = APIRouter(prefix="/tags", tags=["标签管理"])
@@ -14,14 +14,14 @@ router = APIRouter(prefix="/tags", tags=["标签管理"])
 
 class TagCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=30)
-    color: Optional[str] = Field(default="#409EFF", max_length=20)
+    color: str | None = Field(default="#409EFF", max_length=20)
     sort_order: int = 0
 
 
 class TagUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=30)
-    color: Optional[str] = Field(default=None, max_length=20)
-    sort_order: Optional[int] = None
+    name: str | None = Field(default=None, min_length=1, max_length=30)
+    color: str | None = Field(default=None, max_length=20)
+    sort_order: int | None = None
 
 
 class TagResponse(BaseModel):
@@ -87,4 +87,3 @@ async def delete_tag(tag_id: str, current_user: dict = Depends(get_current_user)
         raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"删除标签失败: {e}")
-

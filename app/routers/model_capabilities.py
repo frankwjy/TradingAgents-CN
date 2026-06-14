@@ -2,24 +2,25 @@
 模型能力管理API路由
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Dict, Any, Optional
+import logging
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.model_capability_service import get_model_capability_service
 from app.constants.model_capabilities import (
-    DEFAULT_MODEL_CAPABILITIES,
     ANALYSIS_DEPTH_REQUIREMENTS,
     CAPABILITY_DESCRIPTIONS,
-    ModelRole,
+    DEFAULT_MODEL_CAPABILITIES,
     ModelFeature,
+    ModelRole,
+    get_feature_badge,
     get_model_capability_badge,
     get_role_badge,
-    get_feature_badge
 )
+from app.core.response import ok
 from app.core.unified_config import unified_config
-from app.core.response import ok, fail
-import logging
+from app.services.model_capability_service import get_model_capability_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,24 +29,28 @@ router = APIRouter(prefix="/api/model-capabilities", tags=["模型能力管理"]
 
 # ==================== 请求/响应模型 ====================
 
+
 class ModelCapabilityInfo(BaseModel):
     """模型能力信息"""
+
     model_name: str
     capability_level: int
-    suitable_roles: List[str]
-    features: List[str]
-    recommended_depths: List[str]
-    performance_metrics: Optional[Dict[str, Any]] = None
-    description: Optional[str] = None
+    suitable_roles: list[str]
+    features: list[str]
+    recommended_depths: list[str]
+    performance_metrics: dict[str, Any] | None = None
+    description: str | None = None
 
 
 class ModelRecommendationRequest(BaseModel):
     """模型推荐请求"""
+
     research_depth: str = Field(..., description="研究深度：快速/基础/标准/深度/全面")
 
 
 class ModelRecommendationResponse(BaseModel):
     """模型推荐响应"""
+
     quick_model: str
     deep_model: str
     quick_model_info: ModelCapabilityInfo
@@ -55,6 +60,7 @@ class ModelRecommendationResponse(BaseModel):
 
 class ModelValidationRequest(BaseModel):
     """模型验证请求"""
+
     quick_model: str
     deep_model: str
     research_depth: str
@@ -62,17 +68,20 @@ class ModelValidationRequest(BaseModel):
 
 class ModelValidationResponse(BaseModel):
     """模型验证响应"""
+
     valid: bool
-    warnings: List[str]
-    recommendations: List[str]
+    warnings: list[str]
+    recommendations: list[str]
 
 
 class BatchInitRequest(BaseModel):
     """批量初始化请求"""
+
     overwrite: bool = Field(default=False, description="是否覆盖已有配置")
 
 
 # ==================== API路由 ====================
+
 
 @router.get("/default-configs")
 async def get_default_model_configs():
@@ -92,14 +101,10 @@ async def get_default_model_configs():
                 "features": [str(feature) for feature in config["features"]],
                 "recommended_depths": config["recommended_depths"],
                 "performance_metrics": config.get("performance_metrics"),
-                "description": config.get("description")
+                "description": config.get("description"),
             }
 
-        return {
-            "success": True,
-            "data": configs,
-            "message": "获取默认模型配置成功"
-        }
+        return {"success": True, "data": configs, "message": "获取默认模型配置成功"}
     except Exception as e:
         logger.error(f"获取默认模型配置失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -121,7 +126,7 @@ async def get_depth_requirements():
                 "quick_model_min": req["quick_model_min"],
                 "deep_model_min": req["deep_model_min"],
                 "required_features": [str(f) for f in req["required_features"]],
-                "description": req["description"]
+                "description": req["description"],
             }
 
         return ok(requirements, "获取分析深度要求成功")
@@ -149,18 +154,9 @@ async def get_all_badges():
     """
     try:
         badges = {
-            "capability_levels": {
-                str(level): get_model_capability_badge(level)
-                for level in range(1, 6)
-            },
-            "roles": {
-                str(role): get_role_badge(role)
-                for role in ModelRole
-            },
-            "features": {
-                str(feature): get_feature_badge(feature)
-                for feature in ModelFeature
-            }
+            "capability_levels": {str(level): get_model_capability_badge(level) for level in range(1, 6)},
+            "roles": {str(role): get_role_badge(role) for role in ModelRole},
+            "features": {str(feature): get_feature_badge(feature) for feature in ModelFeature},
         }
 
         return ok(badges, "获取徽章样式成功")
@@ -180,9 +176,7 @@ async def recommend_models(request: ModelRecommendationRequest):
         capability_service = get_model_capability_service()
 
         # 获取推荐模型
-        quick_model, deep_model = capability_service.recommend_models_for_depth(
-            request.research_depth
-        )
+        quick_model, deep_model = capability_service.recommend_models_for_depth(request.research_depth)
 
         logger.info(f"🔍 推荐模型: quick={quick_model}, deep={deep_model}")
 
@@ -193,22 +187,13 @@ async def recommend_models(request: ModelRecommendationRequest):
         logger.info(f"🔍 模型详细信息: quick_info={quick_info}, deep_info={deep_info}")
 
         # 生成推荐理由
-        depth_req = ANALYSIS_DEPTH_REQUIREMENTS.get(
-            request.research_depth,
-            ANALYSIS_DEPTH_REQUIREMENTS["标准"]
-        )
+        depth_req = ANALYSIS_DEPTH_REQUIREMENTS.get(request.research_depth, ANALYSIS_DEPTH_REQUIREMENTS["标准"])
 
         # 获取能力等级描述
-        capability_desc = {
-            1: "基础级",
-            2: "标准级",
-            3: "高级",
-            4: "专业级",
-            5: "旗舰级"
-        }
+        capability_desc = {1: "基础级", 2: "标准级", 3: "高级", 4: "专业级", 5: "旗舰级"}
 
-        quick_level_desc = capability_desc.get(quick_info['capability_level'], "标准级")
-        deep_level_desc = capability_desc.get(deep_info['capability_level'], "标准级")
+        quick_level_desc = capability_desc.get(quick_info["capability_level"], "标准级")
+        deep_level_desc = capability_desc.get(deep_info["capability_level"], "标准级")
 
         reason = (
             f"• 快速模型：{quick_level_desc}，注重速度和成本，适合数据收集\n"
@@ -220,7 +205,7 @@ async def recommend_models(request: ModelRecommendationRequest):
             "deep_model": deep_model,
             "quick_model_info": quick_info,
             "deep_model_info": deep_info,
-            "reason": reason
+            "reason": reason,
         }
 
         logger.info(f"🔍 返回的响应数据: {response_data}")
@@ -243,9 +228,7 @@ async def validate_models(request: ModelValidationRequest):
 
         # 验证模型对
         validation = capability_service.validate_model_pair(
-            request.quick_model,
-            request.deep_model,
-            request.research_depth
+            request.quick_model, request.deep_model, request.research_depth
         )
 
         return ok(validation, "模型验证完成")
@@ -272,7 +255,7 @@ async def batch_init_capabilities(request: BatchInitRequest):
             model_name = config.model_name
 
             # 检查是否已有能力配置
-            has_capability = hasattr(config, 'capability_level') and config.capability_level is not None
+            has_capability = hasattr(config, "capability_level") and config.capability_level is not None
 
             if has_capability and not request.overwrite:
                 skipped_count += 1
@@ -298,12 +281,8 @@ async def batch_init_capabilities(request: BatchInitRequest):
                 skipped_count += 1
 
         return ok(
-            {
-                "updated_count": updated_count,
-                "skipped_count": skipped_count,
-                "total_count": len(llm_configs)
-            },
-            f"批量初始化完成：更新{updated_count}个，跳过{skipped_count}个"
+            {"updated_count": updated_count, "skipped_count": skipped_count, "total_count": len(llm_configs)},
+            f"批量初始化完成：更新{updated_count}个，跳过{skipped_count}个",
         )
     except Exception as e:
         logger.error(f"批量初始化失败: {e}")
@@ -326,4 +305,3 @@ async def get_model_capability(model_name: str):
     except Exception as e:
         logger.error(f"获取模型能力信息失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-

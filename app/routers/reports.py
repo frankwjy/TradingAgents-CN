@@ -1,25 +1,25 @@
 """
 分析报告管理API路由
 """
-import os
-import json
-from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
-from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.responses import FileResponse, StreamingResponse
+import json
+import logging
+from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from .auth_db import get_current_user
 from ..core.database import get_mongo_db
 from ..utils.timezone import to_config_tz
-import logging
+from .auth_db import get_current_user
 
 logger = logging.getLogger("webapi")
 
 # 股票名称缓存
 _stock_name_cache = {}
+
 
 def get_stock_name(stock_code: str) -> str:
     """
@@ -46,12 +46,13 @@ def get_stock_name(stock_code: str) -> str:
 
         # 提取启用的数据源，按优先级排序
         enabled_sources = [
-            ds.type.lower() for ds in data_source_configs
-            if ds.enabled and ds.type.lower() in ['tushare', 'akshare', 'baostock']
+            ds.type.lower()
+            for ds in data_source_configs
+            if ds.enabled and ds.type.lower() in ["tushare", "akshare", "baostock"]
         ]
 
         if not enabled_sources:
-            enabled_sources = ['tushare', 'akshare', 'baostock']
+            enabled_sources = ["tushare", "akshare", "baostock"]
 
         # 按数据源优先级查询
         stock_info = None
@@ -65,9 +66,7 @@ def get_stock_name(stock_code: str) -> str:
 
         # 如果所有数据源都没有，尝试不带 source 条件查询（兼容旧数据）
         if not stock_info:
-            stock_info = db.stock_basic_info.find_one(
-                {"$or": [{"symbol": code6}, {"code": code6}]}
-            )
+            stock_info = db.stock_basic_info.find_one({"$or": [{"symbol": code6}, {"code": code6}]})
             if stock_info:
                 logger.warning(f"⚠️ 使用旧数据（无 source 字段）获取股票名称 {code6}")
 
@@ -86,46 +85,53 @@ def get_stock_name(stock_code: str) -> str:
 
 
 # 统一构建报告查询：支持 _id(ObjectId) / analysis_id / task_id 三种
-def _build_report_query(report_id: str) -> Dict[str, Any]:
+def _build_report_query(report_id: str) -> dict[str, Any]:
     ors = [
         {"analysis_id": report_id},
         {"task_id": report_id},
     ]
     try:
         from bson import ObjectId
+
         ors.append({"_id": ObjectId(report_id)})
     except Exception:
         pass
     return {"$or": ors}
 
+
 router = APIRouter(prefix="/api/reports", tags=["reports"])
+
 
 class ReportFilter(BaseModel):
     """报告筛选参数"""
-    search_keyword: Optional[str] = None
-    market_filter: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    stock_code: Optional[str] = None
-    report_type: Optional[str] = None
+
+    search_keyword: str | None = None
+    market_filter: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    stock_code: str | None = None
+    report_type: str | None = None
+
 
 class ReportListResponse(BaseModel):
     """报告列表响应"""
-    reports: List[Dict[str, Any]]
+
+    reports: list[dict[str, Any]]
     total: int
     page: int
     page_size: int
 
-@router.get("/list", response_model=Dict[str, Any])
+
+@router.get("/list", response_model=dict[str, Any])
 async def get_reports_list(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
-    search_keyword: Optional[str] = Query(None, description="搜索关键词"),
-    market_filter: Optional[str] = Query(None, description="市场筛选（A股/港股/美股）"),
-    start_date: Optional[str] = Query(None, description="开始日期"),
-    end_date: Optional[str] = Query(None, description="结束日期"),
-    stock_code: Optional[str] = Query(None, description="股票代码"),
-    user: dict = Depends(get_current_user)
+    search_keyword: str | None = Query(None, description="搜索关键词"),
+    market_filter: str | None = Query(None, description="市场筛选（A股/港股/美股）"),
+    start_date: str | None = Query(None, description="开始日期"),
+    end_date: str | None = Query(None, description="结束日期"),
+    stock_code: str | None = Query(None, description="股票代码"),
+    user: dict = Depends(get_current_user),
 ):
     """获取分析报告列表"""
     try:
@@ -141,7 +147,7 @@ async def get_reports_list(
             query["$or"] = [
                 {"stock_symbol": {"$regex": search_keyword, "$options": "i"}},
                 {"analysis_id": {"$regex": search_keyword, "$options": "i"}},
-                {"summary": {"$regex": search_keyword, "$options": "i"}}
+                {"summary": {"$regex": search_keyword, "$options": "i"}},
             ]
 
         # 市场筛选
@@ -183,13 +189,9 @@ async def get_reports_list(
             market_type = doc.get("market_type")
             if not market_type:
                 from tradingagents.utils.stock_utils import StockUtils
+
                 market_info = StockUtils.get_market_info(stock_code)
-                market_type_map = {
-                    "china_a": "A股",
-                    "hong_kong": "港股",
-                    "us": "美股",
-                    "unknown": "A股"
-                }
+                market_type_map = {"china_a": "A股", "hong_kong": "港股", "us": "美股", "unknown": "A股"}
                 market_type = market_type_map.get(market_info.get("market", "unknown"), "A股")
 
             # 获取创建时间（数据库中是 UTC 时间，需要转换为 UTC+8）
@@ -214,7 +216,7 @@ async def get_reports_list(
                 "summary": doc.get("summary", ""),
                 "file_size": len(str(doc.get("reports", {}))),  # 估算大小
                 "source": doc.get("source", "unknown"),
-                "task_id": doc.get("task_id", "")
+                "task_id": doc.get("task_id", ""),
             }
             reports.append(report)
 
@@ -222,24 +224,17 @@ async def get_reports_list(
 
         return {
             "success": True,
-            "data": {
-                "reports": reports,
-                "total": total,
-                "page": page,
-                "page_size": page_size
-            },
-            "message": "报告列表获取成功"
+            "data": {"reports": reports, "total": total, "page": page, "page_size": page_size},
+            "message": "报告列表获取成功",
         }
 
     except Exception as e:
         logger.error(f"❌ 获取报告列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/{report_id}/detail")
-async def get_report_detail(
-    report_id: str,
-    user: dict = Depends(get_current_user)
-):
+async def get_report_detail(report_id: str, user: dict = Depends(get_current_user)):
     """获取报告详情"""
     try:
         logger.info(f"🔍 获取报告详情: {report_id}")
@@ -255,7 +250,7 @@ async def get_report_detail(
             logger.info(f"⚠️ 未在analysis_reports找到，尝试从analysis_tasks还原: {report_id}")
             tasks_doc = await db.analysis_tasks.find_one(
                 {"$or": [{"task_id": report_id}, {"result.analysis_id": report_id}]},
-                {"result": 1, "task_id": 1, "stock_code": 1, "created_at": 1, "completed_at": 1}
+                {"result": 1, "task_id": 1, "stock_code": 1, "created_at": 1, "completed_at": 1},
             )
             if not tasks_doc or not tasks_doc.get("result"):
                 raise HTTPException(status_code=404, detail="报告不存在")
@@ -299,7 +294,7 @@ async def get_report_detail(
                 "risk_level": r.get("risk_level", "中等"),
                 "key_points": r.get("key_points", []),
                 "execution_time": r.get("execution_time", 0),
-                "tokens_used": r.get("tokens_used", 0)
+                "tokens_used": r.get("tokens_used", 0),
             }
         else:
             # 转换为详细格式（analysis_reports 命中）
@@ -337,14 +332,10 @@ async def get_report_detail(
                 "risk_level": doc.get("risk_level", "中等"),
                 "key_points": doc.get("key_points", []),
                 "execution_time": doc.get("execution_time", 0),
-                "tokens_used": doc.get("tokens_used", 0)
+                "tokens_used": doc.get("tokens_used", 0),
             }
 
-        return {
-            "success": True,
-            "data": report,
-            "message": "报告详情获取成功"
-        }
+        return {"success": True, "data": report, "message": "报告详情获取成功"}
 
     except HTTPException:
         raise
@@ -352,12 +343,9 @@ async def get_report_detail(
         logger.error(f"❌ 获取报告详情失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/{report_id}/content/{module}")
-async def get_report_module_content(
-    report_id: str,
-    module: str,
-    user: dict = Depends(get_current_user)
-):
+async def get_report_module_content(report_id: str, module: str, user: dict = Depends(get_current_user)):
     """获取报告特定模块的内容"""
     try:
         logger.info(f"🔍 获取报告模块内容: {report_id}/{module}")
@@ -383,9 +371,9 @@ async def get_report_module_content(
             "data": {
                 "module": module,
                 "content": content,
-                "content_type": "markdown" if isinstance(content, str) else "json"
+                "content_type": "markdown" if isinstance(content, str) else "json",
             },
-            "message": "模块内容获取成功"
+            "message": "模块内容获取成功",
         }
 
     except HTTPException:
@@ -394,11 +382,9 @@ async def get_report_module_content(
         logger.error(f"❌ 获取报告模块内容失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.delete("/{report_id}")
-async def delete_report(
-    report_id: str,
-    user: dict = Depends(get_current_user)
-):
+async def delete_report(report_id: str, user: dict = Depends(get_current_user)):
     """删除报告"""
     try:
         logger.info(f"🗑️ 删除报告: {report_id}")
@@ -414,10 +400,7 @@ async def delete_report(
 
         logger.info(f"✅ 报告删除成功: {report_id}")
 
-        return {
-            "success": True,
-            "message": "报告删除成功"
-        }
+        return {"success": True, "message": "报告删除成功"}
 
     except HTTPException:
         raise
@@ -425,11 +408,12 @@ async def delete_report(
         logger.error(f"❌ 删除报告失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/{report_id}/download")
 async def download_report(
     report_id: str,
     format: str = Query("markdown", description="下载格式: markdown, json, pdf, docx"),
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
 ):
     """下载报告
 
@@ -462,12 +446,10 @@ async def download_report(
 
             # 返回文件流
             def generate():
-                yield content.encode('utf-8')
+                yield content.encode("utf-8")
 
             return StreamingResponse(
-                generate(),
-                media_type=media_type,
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                generate(), media_type=media_type, headers={"Content-Disposition": f"attachment; filename={filename}"}
             )
 
         elif format == "markdown":
@@ -501,12 +483,10 @@ async def download_report(
 
             # 返回文件流
             def generate():
-                yield content.encode('utf-8')
+                yield content.encode("utf-8")
 
             return StreamingResponse(
-                generate(),
-                media_type=media_type,
-                headers={"Content-Disposition": f"attachment; filename={filename}"}
+                generate(), media_type=media_type, headers={"Content-Disposition": f"attachment; filename={filename}"}
             )
 
         elif format == "docx":
@@ -514,10 +494,7 @@ async def download_report(
             from app.utils.report_exporter import report_exporter
 
             if not report_exporter.pandoc_available:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Word 导出功能不可用。请安装 pandoc: pip install pypandoc"
-                )
+                raise HTTPException(status_code=400, detail="Word 导出功能不可用。请安装 pandoc: pip install pypandoc")
 
             try:
                 # 生成 Word 文档
@@ -531,7 +508,7 @@ async def download_report(
                 return StreamingResponse(
                     generate(),
                     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    headers={"Content-Disposition": f"attachment; filename={filename}"}
+                    headers={"Content-Disposition": f"attachment; filename={filename}"},
                 )
             except Exception as e:
                 logger.error(f"❌ Word 文档生成失败: {e}")
@@ -543,8 +520,7 @@ async def download_report(
 
             if not report_exporter.pandoc_available:
                 raise HTTPException(
-                    status_code=400,
-                    detail="PDF 导出功能不可用。请安装 pandoc 和 PDF 引擎（wkhtmltopdf 或 LaTeX）"
+                    status_code=400, detail="PDF 导出功能不可用。请安装 pandoc 和 PDF 引擎（wkhtmltopdf 或 LaTeX）"
                 )
 
             try:
@@ -559,7 +535,7 @@ async def download_report(
                 return StreamingResponse(
                     generate(),
                     media_type="application/pdf",
-                    headers={"Content-Disposition": f"attachment; filename={filename}"}
+                    headers={"Content-Disposition": f"attachment; filename={filename}"},
                 )
             except Exception as e:
                 logger.error(f"❌ PDF 文档生成失败: {e}")

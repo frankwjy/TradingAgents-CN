@@ -1,23 +1,26 @@
 # gets data/stats
 
-import yfinance as yf
-from typing import Annotated, Callable, Any, Optional
-from pandas import DataFrame
-import pandas as pd
-from functools import wraps
+from collections.abc import Callable
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
-import os
+from functools import wraps
+from typing import Annotated, Any
 
-from tradingagents.utils.dataflow_utils import save_output, SavePathType, decorate_all_methods
+import pandas as pd
+import yfinance as yf
+from dateutil.relativedelta import relativedelta
+from pandas import DataFrame
+
+from tradingagents.utils.dataflow_utils import SavePathType, decorate_all_methods
 
 # 导入日志模块
 from tradingagents.utils.logging_manager import get_logger
-logger = get_logger('agents')
+
+logger = get_logger("agents")
 
 # 导入缓存管理器（延迟导入，避免循环依赖）
 _cache_module = None
 CACHE_AVAILABLE = True
+
 
 def get_cache():
     """延迟导入缓存管理器"""
@@ -25,6 +28,7 @@ def get_cache():
     if _cache_module is None:
         try:
             from ...cache import get_cache as _get_cache
+
             _cache_module = _get_cache
             CACHE_AVAILABLE = True
         except ImportError as e:
@@ -47,15 +51,10 @@ def init_ticker(func: Callable) -> Callable:
 
 @decorate_all_methods(init_ticker)
 class YFinanceUtils:
-
     def get_stock_data(
         symbol: Annotated[str, "ticker symbol"],
-        start_date: Annotated[
-            str, "start date for retrieving stock price data, YYYY-mm-dd"
-        ],
-        end_date: Annotated[
-            str, "end date for retrieving stock price data, YYYY-mm-dd"
-        ],
+        start_date: Annotated[str, "start date for retrieving stock price data, YYYY-mm-dd"],
+        end_date: Annotated[str, "end date for retrieving stock price data, YYYY-mm-dd"],
         save_path: SavePathType = None,
     ) -> DataFrame:
         """retrieve stock price data for designated ticker symbol"""
@@ -77,7 +76,7 @@ class YFinanceUtils:
 
     def get_company_info(
         symbol: Annotated[str, "ticker symbol"],
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> DataFrame:
         """Fetches and returns company information as a DataFrame."""
         ticker = symbol
@@ -97,7 +96,7 @@ class YFinanceUtils:
 
     def get_stock_dividends(
         symbol: Annotated[str, "ticker symbol"],
-        save_path: Optional[str] = None,
+        save_path: str | None = None,
     ) -> DataFrame:
         """Fetches and returns the latest dividends data as a DataFrame."""
         ticker = symbol
@@ -143,6 +142,7 @@ class YFinanceUtils:
 
 
 # ==================== 技术指标相关函数 ====================
+
 
 def get_stock_data_with_indicators(
     symbol: Annotated[str, "ticker symbol of the company"],
@@ -231,25 +231,17 @@ def get_technical_indicator(
                 "提示：滞后于价格，建议结合快速指标使用。"
             ),
             "close_200_sma": (
-                "200 SMA: 长期趋势基准。"
-                "用途：确认整体市场趋势，识别金叉/死叉。"
-                "提示：反应缓慢，适合战略性趋势确认。"
+                "200 SMA: 长期趋势基准。用途：确认整体市场趋势，识别金叉/死叉。提示：反应缓慢，适合战略性趋势确认。"
             ),
             "close_10_ema": (
-                "10 EMA: 短期响应平均线。"
-                "用途：捕捉快速动量变化和潜在入场点。"
-                "提示：在震荡市场中容易产生噪音。"
+                "10 EMA: 短期响应平均线。用途：捕捉快速动量变化和潜在入场点。提示：在震荡市场中容易产生噪音。"
             ),
             "macd": (
                 "MACD: 通过EMA差值计算动量。"
                 "用途：寻找交叉和背离作为趋势变化信号。"
                 "提示：在低波动或横盘市场中需要其他指标确认。"
             ),
-            "macds": (
-                "MACD信号线: MACD线的EMA平滑。"
-                "用途：与MACD线交叉触发交易信号。"
-                "提示：应作为更广泛策略的一部分。"
-            ),
+            "macds": ("MACD信号线: MACD线的EMA平滑。用途：与MACD线交叉触发交易信号。提示：应作为更广泛策略的一部分。"),
             "macdh": (
                 "MACD柱状图: MACD线与信号线的差值。"
                 "用途：可视化动量强度，早期发现背离。"
@@ -261,9 +253,7 @@ def get_technical_indicator(
                 "提示：在强趋势中RSI可能保持极端值，需结合趋势分析。"
             ),
             "boll": (
-                "布林带中轨: 20日SMA作为布林带基准。"
-                "用途：作为价格运动的动态基准。"
-                "提示：结合上下轨有效发现突破或反转。"
+                "布林带中轨: 20日SMA作为布林带基准。用途：作为价格运动的动态基准。提示：结合上下轨有效发现突破或反转。"
             ),
             "boll_ub": (
                 "布林带上轨: 通常为中轨上方2个标准差。"
@@ -271,9 +261,7 @@ def get_technical_indicator(
                 "提示：需其他工具确认，强趋势中价格可能沿轨道运行。"
             ),
             "boll_lb": (
-                "布林带下轨: 通常为中轨下方2个标准差。"
-                "用途：指示潜在超卖状态。"
-                "提示：使用额外分析避免虚假反转信号。"
+                "布林带下轨: 通常为中轨下方2个标准差。用途：指示潜在超卖状态。提示：使用额外分析避免虚假反转信号。"
             ),
             "atr": (
                 "ATR: 平均真实波幅测量波动性。"
@@ -311,7 +299,7 @@ def get_technical_indicator(
 
         # 重置索引，将日期作为列
         data = data.reset_index()
-        data['Date'] = pd.to_datetime(data['Date']).dt.strftime('%Y-%m-%d')
+        data["Date"] = pd.to_datetime(data["Date"]).dt.strftime("%Y-%m-%d")
 
         # 使用 stockstats 计算指标
         df = wrap(data)
@@ -323,10 +311,10 @@ def get_technical_indicator(
         end_date = curr_date_dt - relativedelta(days=look_back_days)
 
         while check_date >= end_date:
-            date_str = check_date.strftime('%Y-%m-%d')
+            date_str = check_date.strftime("%Y-%m-%d")
 
             # 查找该日期的指标值
-            matching_rows = df[df['Date'] == date_str]
+            matching_rows = df[df["Date"] == date_str]
 
             if not matching_rows.empty:
                 value = matching_rows.iloc[0][indicator]

@@ -6,6 +6,7 @@
 # 导入 Google News
 try:
     from .google_news import getNewsData
+
     GOOGLE_NEWS_AVAILABLE = True
 except ImportError:
     getNewsData = None
@@ -14,6 +15,7 @@ except ImportError:
 # 导入 Reddit
 try:
     from .reddit import fetch_top_from_category
+
     REDDIT_AVAILABLE = True
 except ImportError:
     fetch_top_from_category = None
@@ -21,11 +23,8 @@ except ImportError:
 
 # 导入实时新闻
 try:
-    from .realtime_news import (
-        get_realtime_news,
-        get_news_with_sentiment,
-        search_news_by_keyword
-    )
+    from .realtime_news import get_news_with_sentiment, get_realtime_news, search_news_by_keyword
+
     REALTIME_NEWS_AVAILABLE = True
 except ImportError:
     get_realtime_news = None
@@ -36,6 +35,7 @@ except ImportError:
 # 导入中国财经数据聚合器
 try:
     from .chinese_finance import ChineseFinanceDataAggregator
+
     CHINESE_FINANCE_AVAILABLE = True
 except ImportError:
     ChineseFinanceDataAggregator = None
@@ -43,21 +43,17 @@ except ImportError:
 
 __all__ = [
     # Google News
-    'getNewsData',
-    'GOOGLE_NEWS_AVAILABLE',
-    
+    "getNewsData",
+    "GOOGLE_NEWS_AVAILABLE",
     # Reddit
-    'fetch_top_from_category',
-    'REDDIT_AVAILABLE',
-    
+    "fetch_top_from_category",
+    "REDDIT_AVAILABLE",
     # Realtime News
-    'get_realtime_news',
-    'get_news_with_sentiment',
-    'search_news_by_keyword',
-    'REALTIME_NEWS_AVAILABLE',
-
+    "get_realtime_news",
+    "get_news_with_sentiment",
+    "search_news_by_keyword",
+    "REALTIME_NEWS_AVAILABLE",
     # Chinese Finance
-    'ChineseFinanceDataAggregator',
-    'CHINESE_FINANCE_AVAILABLE',
+    "ChineseFinanceDataAggregator",
+    "CHINESE_FINANCE_AVAILABLE",
 ]
-

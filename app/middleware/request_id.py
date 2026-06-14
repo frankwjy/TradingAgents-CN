@@ -4,12 +4,13 @@
 - 将 trace_id 写入 logging 的 contextvars，使所有日志自动带出
 """
 
+import logging
+import time
+import uuid
+from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-import uuid
-import time
-import logging
-from typing import Callable
 
 from app.core.logging_context import trace_id_var
 
@@ -62,9 +63,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             process_time = time.time() - start_time
 
             # 记录请求异常信息
-            logger.error(
-                f"请求异常 - trace_id: {trace_id}, 处理时间: {process_time:.3f}s, 异常: {str(exc)}"
-            )
+            logger.error(f"请求异常 - trace_id: {trace_id}, 处理时间: {process_time:.3f}s, 异常: {str(exc)}")
             raise
 
         finally:

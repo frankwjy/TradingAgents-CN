@@ -1,43 +1,48 @@
-
 import logging
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from app.routers.auth_db import get_current_user
+from typing import Any
 
-from app.services.screening_service import ScreeningService, ScreeningParams
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+
+from app.models.screening import BASIC_FIELDS_INFO, FieldInfo, ScreeningCondition
+from app.models.screening import ScreeningRequest as NewScreeningRequest
+from app.models.screening import ScreeningResponse as NewScreeningResponse
+from app.routers.auth_db import get_current_user
 from app.services.enhanced_screening_service import get_enhanced_screening_service
-from app.models.screening import (
-    ScreeningCondition, ScreeningRequest as NewScreeningRequest,
-    ScreeningResponse as NewScreeningResponse, FieldInfo, BASIC_FIELDS_INFO
-)
+from app.services.screening_service import ScreeningService
 
 router = APIRouter(tags=["screening"])
 logger = logging.getLogger("webapi")
 
+
 # 筛选字段配置响应模型
 class FieldConfigResponse(BaseModel):
     """筛选字段配置响应"""
-    fields: Dict[str, FieldInfo]
-    categories: Dict[str, List[str]]
+
+    fields: dict[str, FieldInfo]
+    categories: dict[str, list[str]]
+
 
 # 传统的请求/响应模型（保持向后兼容）
 class OrderByItem(BaseModel):
     field: str
     direction: str = Field("desc", pattern=r"^(?i)(asc|desc)$")
 
+
 class ScreeningRequest(BaseModel):
     market: str = Field("CN", description="市场：CN")
-    date: Optional[str] = Field(None, description="交易日YYYY-MM-DD，缺省为最新")
+    date: str | None = Field(None, description="交易日YYYY-MM-DD，缺省为最新")
     adj: str = Field("qfq", description="复权口径：qfq/hfq/none（P0占位）")
-    conditions: Dict[str, Any] = Field(default_factory=dict)
-    order_by: Optional[List[OrderByItem]] = None
+    conditions: dict[str, Any] = Field(default_factory=dict)
+    order_by: list[OrderByItem] | None = None
     limit: int = Field(50, ge=1, le=500)
     offset: int = Field(0, ge=0)
 
+
 class ScreeningResponse(BaseModel):
     total: int
-    items: List[dict]
+    items: list[dict]
+
 
 # 服务实例
 svc = ScreeningService()
@@ -58,20 +63,17 @@ async def get_screening_fields(user: dict = Depends(get_current_user)):
             "financial": ["pe", "pb", "pe_ttm", "pb_mrq", "roe"],
             "trading": ["turnover_rate", "volume_ratio"],
             "price": ["close", "pct_chg", "amount"],
-            "technical": ["ma20", "rsi14", "kdj_k", "kdj_d", "kdj_j", "dif", "dea", "macd_hist"]
+            "technical": ["ma20", "rsi14", "kdj_k", "kdj_d", "kdj_j", "dif", "dea", "macd_hist"],
         }
 
-        return FieldConfigResponse(
-            fields=BASIC_FIELDS_INFO,
-            categories=categories
-        )
+        return FieldConfigResponse(fields=BASIC_FIELDS_INFO, categories=categories)
 
     except Exception as e:
         logger.error(f"[get_screening_fields] 获取字段配置失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _convert_legacy_conditions_to_new_format(legacy_conditions: Dict[str, Any]) -> List[ScreeningCondition]:
+def _convert_legacy_conditions_to_new_format(legacy_conditions: dict[str, Any]) -> list[ScreeningCondition]:
     """
     将传统格式的筛选条件转换为新格式
 
@@ -92,12 +94,12 @@ def _convert_legacy_conditions_to_new_format(legacy_conditions: Dict[str, Any]) 
 
     # 字段名映射（前端可能使用的旧字段名 -> 统一的后端字段名）
     field_mapping = {
-        "market_cap": "total_mv",      # 市值（兼容旧字段名）
-        "pe_ratio": "pe",              # 市盈率（兼容旧字段名）
-        "pb_ratio": "pb",              # 市净率（兼容旧字段名）
-        "turnover": "turnover_rate",   # 换手率（兼容旧字段名）
-        "change_percent": "pct_chg",   # 涨跌幅（兼容旧字段名）
-        "price": "close",              # 价格（兼容旧字段名）
+        "market_cap": "total_mv",  # 市值（兼容旧字段名）
+        "pe_ratio": "pe",  # 市盈率（兼容旧字段名）
+        "pb_ratio": "pb",  # 市净率（兼容旧字段名）
+        "turnover": "turnover_rate",  # 换手率（兼容旧字段名）
+        "change_percent": "pct_chg",  # 涨跌幅（兼容旧字段名）
+        "price": "close",  # 价格（兼容旧字段名）
     }
 
     # 操作符映射
@@ -110,7 +112,7 @@ def _convert_legacy_conditions_to_new_format(legacy_conditions: Dict[str, Any]) 
         "eq": "==",
         "ne": "!=",
         "in": "in",
-        "contains": "contains"
+        "contains": "contains",
     }
 
     if isinstance(legacy_conditions, dict):
@@ -140,11 +142,7 @@ def _convert_legacy_conditions_to_new_format(legacy_conditions: Dict[str, Any]) 
                         logger.info(f"[screening] 市值单位转换: {child.get('value')} 万元 -> {value} 亿元")
 
                     # 创建筛选条件
-                    condition = ScreeningCondition(
-                        field=mapped_field,
-                        operator=mapped_op,
-                        value=value
-                    )
+                    condition = ScreeningCondition(field=mapped_field, operator=mapped_op, value=value)
                     conditions.append(condition)
 
                     logger.info(f"[screening] 转换条件: {field}({op}) -> {mapped_field}({mapped_op}), 值: {value}")
@@ -172,14 +170,16 @@ async def run_screening(req: ScreeningRequest, user: dict = Depends(get_current_
             limit=req.limit,
             offset=req.offset,
             order_by=[{"field": o.field, "direction": o.direction} for o in (req.order_by or [])],
-            use_database_optimization=True
+            use_database_optimization=True,
         )
 
-        logger.info(f"[screening] 筛选完成: total={result.get('total')}, "
-                   f"took={result.get('took_ms')}ms, optimization={result.get('optimization_used')}")
+        logger.info(
+            f"[screening] 筛选完成: total={result.get('total')}, "
+            f"took={result.get('took_ms')}ms, optimization={result.get('optimization_used')}"
+        )
 
-        if result.get('items'):
-            sample = result['items'][:3]
+        if result.get("items"):
+            sample = result["items"][:3]
             logger.info(f"[screening] 返回样例(前3条): {sample}")
 
         return ScreeningResponse(total=result["total"], items=result["items"])
@@ -211,18 +211,20 @@ async def enhanced_screening(req: NewScreeningRequest, user: dict = Depends(get_
             limit=req.limit,
             offset=req.offset,
             order_by=req.order_by,
-            use_database_optimization=req.use_database_optimization
+            use_database_optimization=req.use_database_optimization,
         )
 
-        logger.info(f"[enhanced_screening] 筛选完成: total={result.get('total')}, "
-                   f"took={result.get('took_ms')}ms, optimization={result.get('optimization_used')}")
+        logger.info(
+            f"[enhanced_screening] 筛选完成: total={result.get('total')}, "
+            f"took={result.get('took_ms')}ms, optimization={result.get('optimization_used')}"
+        )
 
         return NewScreeningResponse(
             total=result["total"],
             items=result["items"],
             took_ms=result.get("took_ms"),
             optimization_used=result.get("optimization_used"),
-            source=result.get("source")
+            source=result.get("source"),
         )
 
     except Exception as e:
@@ -231,7 +233,7 @@ async def enhanced_screening(req: NewScreeningRequest, user: dict = Depends(get_
 
 
 # 获取支持的字段信息
-@router.get("/fields", response_model=List[Dict[str, Any]])
+@router.get("/fields", response_model=list[dict[str, Any]])
 async def get_supported_fields(user: dict = Depends(get_current_user)):
     """获取所有支持的筛选字段信息"""
     try:
@@ -243,7 +245,7 @@ async def get_supported_fields(user: dict = Depends(get_current_user)):
 
 
 # 获取单个字段的详细信息
-@router.get("/fields/{field_name}", response_model=Dict[str, Any])
+@router.get("/fields/{field_name}", response_model=dict[str, Any])
 async def get_field_info(field_name: str, user: dict = Depends(get_current_user)):
     """获取指定字段的详细信息"""
     try:
@@ -259,8 +261,8 @@ async def get_field_info(field_name: str, user: dict = Depends(get_current_user)
 
 
 # 验证筛选条件
-@router.post("/validate", response_model=Dict[str, Any])
-async def validate_conditions(conditions: List[ScreeningCondition], user: dict = Depends(get_current_user)):
+@router.post("/validate", response_model=dict[str, Any])
+async def validate_conditions(conditions: list[ScreeningCondition], user: dict = Depends(get_current_user)):
     """验证筛选条件的有效性"""
     try:
         validation_result = await enhanced_svc.validate_conditions(conditions)
@@ -268,6 +270,7 @@ async def validate_conditions(conditions: List[ScreeningCondition], user: dict =
     except Exception as e:
         logger.error(f"[screening] 验证条件失败: {e}")
         raise HTTPException(status_code=500, detail=f"验证条件失败: {str(e)}")
+
 
 # 重复定义的旧端点移除（保留带日志的版本）
 
@@ -292,41 +295,31 @@ async def get_industries(user: dict = Depends(get_current_user)):
 
         # 提取启用的数据源，按优先级排序（已排序）
         enabled_sources = [
-            ds.type.lower() for ds in data_source_configs
-            if ds.enabled and ds.type.lower() in ['tushare', 'akshare', 'baostock']
+            ds.type.lower()
+            for ds in data_source_configs
+            if ds.enabled and ds.type.lower() in ["tushare", "akshare", "baostock"]
         ]
 
         if not enabled_sources:
             # 如果没有配置，使用默认顺序
-            enabled_sources = ['tushare', 'akshare', 'baostock']
+            enabled_sources = ["tushare", "akshare", "baostock"]
 
         logger.info(f"[get_industries] 数据源优先级: {enabled_sources}")
 
         # 🔥 按优先级查询：优先使用优先级最高的数据源
-        preferred_source = enabled_sources[0] if enabled_sources else 'tushare'
+        preferred_source = enabled_sources[0] if enabled_sources else "tushare"
 
         # 聚合查询：按行业分组并统计股票数量（只查询指定数据源）
         pipeline = [
             {
                 "$match": {
                     "source": preferred_source,  # 🔥 只查询优先级最高的数据源
-                    "industry": {"$ne": None, "$ne": ""}  # 过滤空行业
+                    "industry": {"$ne": None, "$ne": ""},  # 过滤空行业
                 }
             },
-            {
-                "$group": {
-                    "_id": "$industry",
-                    "count": {"$sum": 1}
-                }
-            },
+            {"$group": {"_id": "$industry", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}},  # 按股票数量降序排序
-            {
-                "$project": {
-                    "industry": "$_id",
-                    "count": 1,
-                    "_id": 0
-                }
-            }
+            {"$project": {"industry": "$_id", "count": 1, "_id": 0}},
         ]
 
         industries = []
@@ -360,18 +353,20 @@ async def get_industries(user: dict = Depends(get_current_user)):
             except Exception:
                 safe_count = 0
 
-            industries.append({
-                "value": safe_industry,
-                "label": safe_industry,
-                "count": safe_count,
-            })
+            industries.append(
+                {
+                    "value": safe_industry,
+                    "label": safe_industry,
+                    "count": safe_count,
+                }
+            )
 
         logger.info(f"[get_industries] 从数据源 {preferred_source} 返回 {len(industries)} 个行业")
 
         return {
             "industries": industries,
             "total": len(industries),
-            "source": preferred_source  # 🔥 返回数据来源
+            "source": preferred_source,  # 🔥 返回数据来源
         }
 
     except Exception as e:

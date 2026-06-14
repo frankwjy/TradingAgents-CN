@@ -4,14 +4,14 @@
 提供统一的交易时间判断逻辑，用于判断当前是否在A股交易时间内。
 """
 
-from datetime import datetime, time as dtime
-from typing import Optional
+from datetime import datetime
+from datetime import time as dtime
 from zoneinfo import ZoneInfo
 
 from app.core.config import settings
 
 
-def is_trading_time(now: Optional[datetime] = None) -> bool:
+def is_trading_time(now: datetime | None = None) -> bool:
     """
     判断是否在A股交易时间或收盘后缓冲期
 
@@ -33,24 +33,24 @@ def is_trading_time(now: Optional[datetime] = None) -> bool:
     """
     tz = ZoneInfo(settings.TIMEZONE)
     now = now or datetime.now(tz)
-    
+
     # 工作日 Mon-Fri
     if now.weekday() > 4:
         return False
-    
+
     t = now.time()
-    
+
     # 上交所/深交所常规交易时段
     morning = dtime(9, 30)
     noon = dtime(11, 30)
     afternoon_start = dtime(13, 0)
     # 收盘后缓冲期（延长30分钟到15:30）
     buffer_end = dtime(15, 30)
-    
+
     return (morning <= t <= noon) or (afternoon_start <= t <= buffer_end)
 
 
-def is_strict_trading_time(now: Optional[datetime] = None) -> bool:
+def is_strict_trading_time(now: datetime | None = None) -> bool:
     """
     判断是否在严格的A股交易时间内（不包含缓冲期）
 
@@ -66,23 +66,23 @@ def is_strict_trading_time(now: Optional[datetime] = None) -> bool:
     """
     tz = ZoneInfo(settings.TIMEZONE)
     now = now or datetime.now(tz)
-    
+
     # 工作日 Mon-Fri
     if now.weekday() > 4:
         return False
-    
+
     t = now.time()
-    
+
     # 上交所/深交所常规交易时段
     morning = dtime(9, 30)
     noon = dtime(11, 30)
     afternoon_start = dtime(13, 0)
     afternoon_end = dtime(15, 0)
-    
+
     return (morning <= t <= noon) or (afternoon_start <= t <= afternoon_end)
 
 
-def is_pre_market_time(now: Optional[datetime] = None) -> bool:
+def is_pre_market_time(now: datetime | None = None) -> bool:
     """
     判断是否在盘前时间（9:00-9:30）
 
@@ -94,19 +94,19 @@ def is_pre_market_time(now: Optional[datetime] = None) -> bool:
     """
     tz = ZoneInfo(settings.TIMEZONE)
     now = now or datetime.now(tz)
-    
+
     # 工作日 Mon-Fri
     if now.weekday() > 4:
         return False
-    
+
     t = now.time()
     pre_market_start = dtime(9, 0)
     pre_market_end = dtime(9, 30)
-    
+
     return pre_market_start <= t < pre_market_end
 
 
-def is_after_market_time(now: Optional[datetime] = None) -> bool:
+def is_after_market_time(now: datetime | None = None) -> bool:
     """
     判断是否在盘后时间（15:00-15:30）
 
@@ -118,19 +118,19 @@ def is_after_market_time(now: Optional[datetime] = None) -> bool:
     """
     tz = ZoneInfo(settings.TIMEZONE)
     now = now or datetime.now(tz)
-    
+
     # 工作日 Mon-Fri
     if now.weekday() > 4:
         return False
-    
+
     t = now.time()
     after_market_start = dtime(15, 0)
     after_market_end = dtime(15, 30)
-    
+
     return after_market_start <= t <= after_market_end
 
 
-def get_trading_status(now: Optional[datetime] = None) -> str:
+def get_trading_status(now: datetime | None = None) -> str:
     """
     获取当前交易状态
 
@@ -148,13 +148,13 @@ def get_trading_status(now: Optional[datetime] = None) -> str:
     """
     tz = ZoneInfo(settings.TIMEZONE)
     now = now or datetime.now(tz)
-    
+
     # 周末
     if now.weekday() > 4:
         return "closed"
-    
+
     t = now.time()
-    
+
     # 定义时间点
     pre_market_start = dtime(9, 0)
     morning_start = dtime(9, 30)
@@ -162,7 +162,7 @@ def get_trading_status(now: Optional[datetime] = None) -> str:
     afternoon_start = dtime(13, 0)
     afternoon_end = dtime(15, 0)
     after_market_end = dtime(15, 30)
-    
+
     # 判断状态
     if pre_market_start <= t < morning_start:
         return "pre_market"
@@ -176,4 +176,3 @@ def get_trading_status(now: Optional[datetime] = None) -> str:
         return "after_market"
     else:
         return "closed"
-

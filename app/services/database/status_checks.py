@@ -1,16 +1,17 @@
 """
 Database status and connection checks, extracted from DatabaseService.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
-from app.core.database import get_mongo_db, get_redis_client
 from app.core.config import settings
+from app.core.database import get_mongo_db, get_redis_client
 
 
-async def get_mongodb_status() -> Dict[str, Any]:
+async def get_mongodb_status() -> dict[str, Any]:
     try:
         db = get_mongo_db()
         await db.command("ping")
@@ -39,7 +40,7 @@ async def get_mongodb_status() -> Dict[str, Any]:
         }
 
 
-async def get_redis_status() -> Dict[str, Any]:
+async def get_redis_status() -> dict[str, Any]:
     try:
         redis_client = get_redis_client()
         await redis_client.ping()
@@ -66,13 +67,13 @@ async def get_redis_status() -> Dict[str, Any]:
         }
 
 
-async def get_database_status() -> Dict[str, Any]:
+async def get_database_status() -> dict[str, Any]:
     mongodb_status = await get_mongodb_status()
     redis_status = await get_redis_status()
     return {"mongodb": mongodb_status, "redis": redis_status}
 
 
-async def test_mongodb_connection() -> Dict[str, Any]:
+async def test_mongodb_connection() -> dict[str, Any]:
     try:
         db = get_mongo_db()
         start = datetime.utcnow()
@@ -83,7 +84,7 @@ async def test_mongodb_connection() -> Dict[str, Any]:
         return {"success": False, "error": str(e), "message": "MongoDB连接失败"}
 
 
-async def test_redis_connection() -> Dict[str, Any]:
+async def test_redis_connection() -> dict[str, Any]:
     try:
         redis_client = get_redis_client()
         start = datetime.utcnow()
@@ -94,8 +95,7 @@ async def test_redis_connection() -> Dict[str, Any]:
         return {"success": False, "error": str(e), "message": "Redis连接失败"}
 
 
-async def test_connections() -> Dict[str, Any]:
+async def test_connections() -> dict[str, Any]:
     mongodb = await test_mongodb_connection()
     redis = await test_redis_connection()
     return {"mongodb": mongodb, "redis": redis, "overall": mongodb["success"] and redis["success"]}
-

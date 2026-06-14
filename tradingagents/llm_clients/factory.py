@@ -1,8 +1,5 @@
-from typing import Optional
-
 from .base_client import BaseLLMClient
 from .provider_keys import normalize_provider_key
-
 
 _PROVIDER_ALIASES = {
     "dashscope": "qwen",
@@ -27,7 +24,7 @@ _OPENAI_COMPATIBLE = {
 def create_llm_client(
     provider: str,
     model: str,
-    base_url: Optional[str] = None,
+    base_url: str | None = None,
     **kwargs,
 ) -> BaseLLMClient:
     provider_lower = normalize_provider_key(provider)

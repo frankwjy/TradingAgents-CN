@@ -3,14 +3,14 @@
 将现有的TradingAgents分析功能包装成API服务
 """
 
-import asyncio
-import uuid
 import json
 import logging
-from datetime import datetime
-from typing import Dict, Any, List, Optional, Callable
-from pathlib import Path
 import sys
+import uuid
+from collections.abc import Callable
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
@@ -18,28 +18,33 @@ sys.path.insert(0, str(project_root))
 
 # 初始化TradingAgents日志系统
 from tradingagents.utils.logging_init import init_logging
+
 init_logging()
 
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
-from app.services.simple_analysis_service import create_analysis_config, get_provider_by_model_name
-from app.models.analysis import (
-    AnalysisParameters, AnalysisResult, AnalysisTask, AnalysisBatch,
-    AnalysisStatus, BatchStatus, SingleAnalysisRequest, BatchAnalysisRequest
-)
-from app.models.user import PyObjectId
 from bson import ObjectId
-from app.core.database import get_mongo_db
-from app.core.redis_client import get_redis_service, RedisKeys
-from app.services.queue_service import QueueService
-from app.core.database import get_redis_client
-from app.services.redis_progress_tracker import RedisProgressTracker
+
+from app.core.database import get_mongo_db, get_redis_client
+from app.core.redis_client import RedisKeys, get_redis_service
+from app.models.analysis import (
+    AnalysisBatch,
+    AnalysisParameters,
+    AnalysisResult,
+    AnalysisStatus,
+    AnalysisTask,
+    BatchAnalysisRequest,
+    BatchStatus,
+    SingleAnalysisRequest,
+)
+from app.models.config import UsageRecord
+from app.models.user import PyObjectId
 from app.services.config_provider import provider as config_provider
 from app.services.queue import DEFAULT_USER_CONCURRENT_LIMIT, GLOBAL_CONCURRENT_LIMIT, VISIBILITY_TIMEOUT_SECONDS
+from app.services.queue_service import QueueService
+from app.services.redis_progress_tracker import RedisProgressTracker
+from app.services.simple_analysis_service import create_analysis_config, get_provider_by_model_name
 from app.services.usage_statistics_service import UsageStatisticsService
-from app.models.config import UsageRecord
+from tradingagents.graph.trading_graph import TradingAgentsGraph
 
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -54,7 +59,7 @@ class AnalysisService:
         self.usage_service = UsageStatisticsService()
         self._trading_graph_cache = {}
         # 进度跟踪器缓存
-        self._progress_trackers: Dict[str, RedisProgressTracker] = {}
+        self._progress_trackers: dict[str, RedisProgressTracker] = {}
 
     def _convert_user_id(self, user_id: str) -> PyObjectId:
         """将字符串用户ID转换为PyObjectId"""
@@ -78,8 +83,8 @@ class AnalysisService:
             new_object_id = ObjectId()
             logger.warning(f"⚠️ 生成新的用户ID: {new_object_id}")
             return PyObjectId(new_object_id)
-    
-    def _get_trading_graph(self, config: Dict[str, Any]) -> TradingAgentsGraph:
+
+    def _get_trading_graph(self, config: dict[str, Any]) -> TradingAgentsGraph:
         """获取或创建TradingAgents图实例（带缓存）- 与单股分析保持一致"""
         config_key = json.dumps(config, sort_keys=True)
 
@@ -89,20 +94,23 @@ class AnalysisService:
             self._trading_graph_cache[config_key] = TradingAgentsGraph(
                 selected_analysts=config.get("selected_analysts", ["market", "fundamentals"]),
                 debug=config.get("debug", False),
-                config=config
+                config=config,
             )
 
             logger.info(f"创建新的TradingAgents实例: {config.get('llm_provider', 'default')}")
 
         return self._trading_graph_cache[config_key]
 
-    def _execute_analysis_sync_with_progress(self, task: AnalysisTask, progress_tracker: RedisProgressTracker) -> AnalysisResult:
+    def _execute_analysis_sync_with_progress(
+        self, task: AnalysisTask, progress_tracker: RedisProgressTracker
+    ) -> AnalysisResult:
         """同步执行分析任务（在线程池中运行，带进度跟踪）"""
         try:
             # 在线程中重新初始化日志系统
-            from tradingagents.utils.logging_init import init_logging, get_logger
+            from tradingagents.utils.logging_init import get_logger, init_logging
+
             init_logging()
-            thread_logger = get_logger('analysis_thread')
+            thread_logger = get_logger("analysis_thread")
 
             thread_logger.info(f"🔄 [线程池] 开始执行分析任务: {task.task_id} - {task.symbol}")
             logger.info(f"🔄 [线程池] 开始执行分析任务: {task.task_id} - {task.symbol}")
@@ -113,8 +121,12 @@ class AnalysisService:
             # 使用标准配置函数创建完整配置
             from app.core.unified_config import unified_config
 
-            quick_model = getattr(task.parameters, 'quick_analysis_model', None) or unified_config.get_quick_analysis_model()
-            deep_model = getattr(task.parameters, 'deep_analysis_model', None) or unified_config.get_deep_analysis_model()
+            quick_model = (
+                getattr(task.parameters, "quick_analysis_model", None) or unified_config.get_quick_analysis_model()
+            )
+            deep_model = (
+                getattr(task.parameters, "deep_analysis_model", None) or unified_config.get_deep_analysis_model()
+            )
 
             # 🔧 从 MongoDB 数据库读取模型的完整配置参数（而不是从 JSON 文件）
             quick_model_config = None
@@ -122,6 +134,7 @@ class AnalysisService:
 
             try:
                 from pymongo import MongoClient
+
                 from app.core.config import settings
 
                 # 使用同步 MongoDB 客户端
@@ -143,11 +156,15 @@ class AnalysisService:
                                 "temperature": llm_config.get("temperature", 0.7),
                                 "timeout": llm_config.get("timeout", 180),
                                 "retry_times": llm_config.get("retry_times", 3),
-                                "api_base": llm_config.get("api_base")
+                                "api_base": llm_config.get("api_base"),
                             }
                             logger.info(f"✅ 读取快速模型配置: {quick_model}")
-                            logger.info(f"   max_tokens={quick_model_config['max_tokens']}, temperature={quick_model_config['temperature']}")
-                            logger.info(f"   timeout={quick_model_config['timeout']}, retry_times={quick_model_config['retry_times']}")
+                            logger.info(
+                                f"   max_tokens={quick_model_config['max_tokens']}, temperature={quick_model_config['temperature']}"
+                            )
+                            logger.info(
+                                f"   timeout={quick_model_config['timeout']}, retry_times={quick_model_config['retry_times']}"
+                            )
                             logger.info(f"   api_base={quick_model_config['api_base']}")
 
                         if llm_config.get("model_name") == deep_model:
@@ -156,7 +173,7 @@ class AnalysisService:
                                 "temperature": llm_config.get("temperature", 0.7),
                                 "timeout": llm_config.get("timeout", 180),
                                 "retry_times": llm_config.get("retry_times", 3),
-                                "api_base": llm_config.get("api_base")
+                                "api_base": llm_config.get("api_base"),
                             }
                             logger.info(f"✅ 读取深度模型配置: {deep_model} - {deep_model_config}")
                 else:
@@ -177,15 +194,16 @@ class AnalysisService:
 
             # 使用标准配置函数创建完整配置
             from app.services.simple_analysis_service import create_analysis_config
+
             config = create_analysis_config(
                 research_depth=task.parameters.research_depth,
                 selected_analysts=task.parameters.selected_analysts or ["market", "fundamentals"],
                 quick_model=quick_model,
                 deep_model=deep_model,
                 llm_provider=llm_provider,
-                market_type=getattr(task.parameters, 'market_type', "A股"),
+                market_type=getattr(task.parameters, "market_type", "A股"),
                 quick_model_config=quick_model_config,  # 传递模型配置
-                deep_model_config=deep_model_config     # 传递模型配置
+                deep_model_config=deep_model_config,  # 传递模型配置
             )
 
             # 启动引擎
@@ -196,6 +214,7 @@ class AnalysisService:
 
             # 执行分析
             from datetime import timezone
+
             start_time = datetime.now(timezone.utc)
             analysis_date = task.parameters.analysis_date or datetime.now().strftime("%Y-%m-%d")
 
@@ -212,7 +231,7 @@ class AnalysisService:
             progress_tracker.update_progress("📊 生成分析报告")
 
             # 从决策中提取模型信息
-            model_info = decision.get('model_info', 'Unknown') if isinstance(decision, dict) else 'Unknown'
+            model_info = decision.get("model_info", "Unknown") if isinstance(decision, dict) else "Unknown"
 
             # 构建结果
             result = AnalysisResult(
@@ -225,7 +244,7 @@ class AnalysisService:
                 detailed_analysis=decision,
                 execution_time=execution_time,
                 tokens_used=decision.get("tokens_used", 0),
-                model_info=model_info  # 🔥 添加模型信息字段
+                model_info=model_info,  # 🔥 添加模型信息字段
             )
 
             logger.info(f"✅ [线程池] 分析任务完成: {task.task_id} - 耗时{execution_time:.2f}秒")
@@ -243,8 +262,12 @@ class AnalysisService:
             # 使用标准配置函数创建完整配置
             from app.core.unified_config import unified_config
 
-            quick_model = getattr(task.parameters, 'quick_analysis_model', None) or unified_config.get_quick_analysis_model()
-            deep_model = getattr(task.parameters, 'deep_analysis_model', None) or unified_config.get_deep_analysis_model()
+            quick_model = (
+                getattr(task.parameters, "quick_analysis_model", None) or unified_config.get_quick_analysis_model()
+            )
+            deep_model = (
+                getattr(task.parameters, "deep_analysis_model", None) or unified_config.get_deep_analysis_model()
+            )
 
             # 🔧 从 MongoDB 数据库读取模型的完整配置参数（而不是从 JSON 文件）
             quick_model_config = None
@@ -252,6 +275,7 @@ class AnalysisService:
 
             try:
                 from pymongo import MongoClient
+
                 from app.core.config import settings
 
                 # 使用同步 MongoDB 客户端
@@ -273,11 +297,15 @@ class AnalysisService:
                                 "temperature": llm_config.get("temperature", 0.7),
                                 "timeout": llm_config.get("timeout", 180),
                                 "retry_times": llm_config.get("retry_times", 3),
-                                "api_base": llm_config.get("api_base")
+                                "api_base": llm_config.get("api_base"),
                             }
                             logger.info(f"✅ 读取快速模型配置: {quick_model}")
-                            logger.info(f"   max_tokens={quick_model_config['max_tokens']}, temperature={quick_model_config['temperature']}")
-                            logger.info(f"   timeout={quick_model_config['timeout']}, retry_times={quick_model_config['retry_times']}")
+                            logger.info(
+                                f"   max_tokens={quick_model_config['max_tokens']}, temperature={quick_model_config['temperature']}"
+                            )
+                            logger.info(
+                                f"   timeout={quick_model_config['timeout']}, retry_times={quick_model_config['retry_times']}"
+                            )
                             logger.info(f"   api_base={quick_model_config['api_base']}")
 
                         if llm_config.get("model_name") == deep_model:
@@ -286,7 +314,7 @@ class AnalysisService:
                                 "temperature": llm_config.get("temperature", 0.7),
                                 "timeout": llm_config.get("timeout", 180),
                                 "retry_times": llm_config.get("retry_times", 3),
-                                "api_base": llm_config.get("api_base")
+                                "api_base": llm_config.get("api_base"),
                             }
                             logger.info(f"✅ 读取深度模型配置: {deep_model} - {deep_model_config}")
                 else:
@@ -301,15 +329,16 @@ class AnalysisService:
 
             # 使用标准配置函数创建完整配置
             from app.services.simple_analysis_service import create_analysis_config
+
             config = create_analysis_config(
                 research_depth=task.parameters.research_depth,
                 selected_analysts=task.parameters.selected_analysts or ["market", "fundamentals"],
                 quick_model=quick_model,
                 deep_model=deep_model,
                 llm_provider=llm_provider,
-                market_type=getattr(task.parameters, 'market_type', "A股"),
+                market_type=getattr(task.parameters, "market_type", "A股"),
                 quick_model_config=quick_model_config,  # 传递模型配置
-                deep_model_config=deep_model_config     # 传递模型配置
+                deep_model_config=deep_model_config,  # 传递模型配置
             )
 
             # 获取TradingAgents实例
@@ -317,6 +346,7 @@ class AnalysisService:
 
             # 执行分析
             from datetime import timezone
+
             start_time = datetime.now(timezone.utc)
             analysis_date = task.parameters.analysis_date or datetime.now().strftime("%Y-%m-%d")
 
@@ -326,7 +356,7 @@ class AnalysisService:
             execution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             # 从决策中提取模型信息
-            model_info = decision.get('model_info', 'Unknown') if isinstance(decision, dict) else 'Unknown'
+            model_info = decision.get("model_info", "Unknown") if isinstance(decision, dict) else "Unknown"
 
             # 构建结果
             result = AnalysisResult(
@@ -339,7 +369,7 @@ class AnalysisService:
                 detailed_analysis=decision,
                 execution_time=execution_time,
                 tokens_used=decision.get("tokens_used", 0),
-                model_info=model_info  # 🔥 添加模型信息字段
+                model_info=model_info,  # 🔥 添加模型信息字段
             )
 
             logger.info(f"✅ [线程池] 分析任务完成: {task.task_id} - 耗时{execution_time:.2f}秒")
@@ -360,7 +390,7 @@ class AnalysisService:
                 task_id=task.task_id,
                 analysts=task.parameters.selected_analysts or ["market", "fundamentals"],
                 research_depth=task.parameters.research_depth or "标准",
-                llm_provider="dashscope"
+                llm_provider="dashscope",
             )
 
             # 缓存进度跟踪器
@@ -379,27 +409,27 @@ class AnalysisService:
             # 使用线程池执行器运行同步的分析代码
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 result = await loop.run_in_executor(
-                    executor,
-                    self._execute_analysis_sync_with_progress,
-                    task,
-                    progress_tracker
+                    executor, self._execute_analysis_sync_with_progress, task, progress_tracker
                 )
 
             # 标记完成
             progress_tracker.mark_completed("✅ 分析完成")
-            await self._update_task_status_with_tracker(task.task_id, AnalysisStatus.COMPLETED, progress_tracker, result)
+            await self._update_task_status_with_tracker(
+                task.task_id, AnalysisStatus.COMPLETED, progress_tracker, result
+            )
 
             # 记录 token 使用
             try:
                 # 获取使用的模型信息
-                quick_model = getattr(task.parameters, 'quick_analysis_model', None)
-                deep_model = getattr(task.parameters, 'deep_analysis_model', None)
+                quick_model = getattr(task.parameters, "quick_analysis_model", None)
+                deep_model = getattr(task.parameters, "deep_analysis_model", None)
 
                 # 优先使用深度分析模型，如果没有则使用快速分析模型
                 model_name = deep_model or quick_model or "qwen-plus"
 
                 # 根据模型名称确定供应商
                 from app.services.simple_analysis_service import get_provider_by_model_name
+
                 provider = get_provider_by_model_name(model_name)
 
                 # 记录使用情况
@@ -423,14 +453,10 @@ class AnalysisService:
             if task.task_id in self._progress_trackers:
                 del self._progress_trackers[task.task_id]
 
-    async def submit_single_analysis(
-        self,
-        user_id: str,
-        request: SingleAnalysisRequest
-    ) -> Dict[str, Any]:
+    async def submit_single_analysis(self, user_id: str, request: SingleAnalysisRequest) -> dict[str, Any]:
         """提交单股分析任务"""
         try:
-            logger.info(f"📝 开始提交单股分析任务")
+            logger.info("📝 开始提交单股分析任务")
             logger.info(f"👤 用户ID: {user_id} (类型: {type(user_id)})")
 
             # 获取股票代码 (兼容旧字段)
@@ -447,7 +473,7 @@ class AnalysisService:
             logger.info(f"🔄 转换后的用户ID: {converted_user_id} (类型: {type(converted_user_id)})")
 
             # 创建分析任务
-            logger.info(f"🏗️ 开始创建AnalysisTask对象...")
+            logger.info("🏗️ 开始创建AnalysisTask对象...")
 
             # 读取合并后的系统设置（ENV 优先 → DB），用于填充模型与并发/超时配置
             try:
@@ -457,16 +483,22 @@ class AnalysisService:
 
             # 填充分析参数中的模型（若请求未显式提供）
             params = request.parameters or AnalysisParameters()
-            if not getattr(params, 'quick_analysis_model', None):
+            if not getattr(params, "quick_analysis_model", None):
                 params.quick_analysis_model = effective_settings.get("quick_analysis_model", "qwen-turbo")
-            if not getattr(params, 'deep_analysis_model', None):
+            if not getattr(params, "deep_analysis_model", None):
                 params.deep_analysis_model = effective_settings.get("deep_analysis_model", "qwen-max")
 
             # 应用系统级并发与可见性超时（若提供）
             try:
-                self.queue_service.user_concurrent_limit = int(effective_settings.get("max_concurrent_tasks", DEFAULT_USER_CONCURRENT_LIMIT))
-                self.queue_service.global_concurrent_limit = int(effective_settings.get("max_concurrent_tasks", GLOBAL_CONCURRENT_LIMIT))
-                self.queue_service.visibility_timeout = int(effective_settings.get("default_analysis_timeout", VISIBILITY_TIMEOUT_SECONDS))
+                self.queue_service.user_concurrent_limit = int(
+                    effective_settings.get("max_concurrent_tasks", DEFAULT_USER_CONCURRENT_LIMIT)
+                )
+                self.queue_service.global_concurrent_limit = int(
+                    effective_settings.get("max_concurrent_tasks", GLOBAL_CONCURRENT_LIMIT)
+                )
+                self.queue_service.visibility_timeout = int(
+                    effective_settings.get("default_analysis_timeout", VISIBILITY_TIMEOUT_SECONDS)
+                )
             except Exception:
                 # 使用默认值即可
                 pass
@@ -477,26 +509,25 @@ class AnalysisService:
                 symbol=stock_symbol,
                 stock_code=stock_symbol,  # 兼容字段
                 parameters=params,
-                status=AnalysisStatus.PENDING
+                status=AnalysisStatus.PENDING,
             )
-            logger.info(f"✅ AnalysisTask对象创建成功")
+            logger.info("✅ AnalysisTask对象创建成功")
 
             # 保存任务到数据库
-            logger.info(f"💾 开始保存任务到数据库...")
+            logger.info("💾 开始保存任务到数据库...")
             db = get_mongo_db()
             task_dict = task.model_dump(by_alias=True)
             logger.info(f"📄 任务字典: {task_dict}")
             await db.analysis_tasks.insert_one(task_dict)
-            logger.info(f"✅ 任务已保存到数据库")
+            logger.info("✅ 任务已保存到数据库")
 
             # 单股分析：直接在后台执行（不阻塞API响应）
-            logger.info(f"🚀 开始在后台执行分析任务...")
+            logger.info("🚀 开始在后台执行分析任务...")
 
             # 创建后台任务，不等待完成
             import asyncio
-            background_task = asyncio.create_task(
-                self._execute_single_analysis_async(task)
-            )
+
+            background_task = asyncio.create_task(self._execute_single_analysis_async(task))
 
             # 不等待任务完成，让它在后台运行
             logger.info(f"✅ 后台任务已启动，任务ID: {task_id}")
@@ -508,23 +539,19 @@ class AnalysisService:
                 "symbol": stock_symbol,
                 "stock_code": stock_symbol,  # 兼容字段
                 "status": AnalysisStatus.PENDING,
-                "message": "任务已在后台启动"
+                "message": "任务已在后台启动",
             }
-            
+
         except Exception as e:
             logger.error(f"提交单股分析任务失败: {e}")
             raise
-    
-    async def submit_batch_analysis(
-        self, 
-        user_id: str, 
-        request: BatchAnalysisRequest
-    ) -> Dict[str, Any]:
+
+    async def submit_batch_analysis(self, user_id: str, request: BatchAnalysisRequest) -> dict[str, Any]:
         """提交批量分析任务"""
         try:
             # 生成批次ID
             batch_id = str(uuid.uuid4())
-            
+
             # 转换用户ID
             converted_user_id = self._convert_user_id(user_id)
 
@@ -535,15 +562,21 @@ class AnalysisService:
                 effective_settings = {}
 
             params = request.parameters or AnalysisParameters()
-            if not getattr(params, 'quick_analysis_model', None):
+            if not getattr(params, "quick_analysis_model", None):
                 params.quick_analysis_model = effective_settings.get("quick_analysis_model", "qwen-turbo")
-            if not getattr(params, 'deep_analysis_model', None):
+            if not getattr(params, "deep_analysis_model", None):
                 params.deep_analysis_model = effective_settings.get("deep_analysis_model", "qwen-max")
 
             try:
-                self.queue_service.user_concurrent_limit = int(effective_settings.get("max_concurrent_tasks", DEFAULT_USER_CONCURRENT_LIMIT))
-                self.queue_service.global_concurrent_limit = int(effective_settings.get("max_concurrent_tasks", GLOBAL_CONCURRENT_LIMIT))
-                self.queue_service.visibility_timeout = int(effective_settings.get("default_analysis_timeout", VISIBILITY_TIMEOUT_SECONDS))
+                self.queue_service.user_concurrent_limit = int(
+                    effective_settings.get("max_concurrent_tasks", DEFAULT_USER_CONCURRENT_LIMIT)
+                )
+                self.queue_service.global_concurrent_limit = int(
+                    effective_settings.get("max_concurrent_tasks", GLOBAL_CONCURRENT_LIMIT)
+                )
+                self.queue_service.visibility_timeout = int(
+                    effective_settings.get("default_analysis_timeout", VISIBILITY_TIMEOUT_SECONDS)
+                )
             except Exception:
                 pass
 
@@ -558,7 +591,7 @@ class AnalysisService:
                 description=request.description,
                 total_tasks=len(stock_symbols),
                 parameters=params,
-                status=BatchStatus.PENDING
+                status=BatchStatus.PENDING,
             )
 
             # 创建任务列表
@@ -572,71 +605,72 @@ class AnalysisService:
                     symbol=symbol,
                     stock_code=symbol,  # 兼容字段
                     parameters=batch.parameters,
-                    status=AnalysisStatus.PENDING
+                    status=AnalysisStatus.PENDING,
                 )
                 tasks.append(task)
-            
+
             # 保存到数据库
             db = get_mongo_db()
             await db.analysis_batches.insert_one(batch.dict(by_alias=True))
             await db.analysis_tasks.insert_many([task.dict(by_alias=True) for task in tasks])
-            
+
             # 提交任务到队列
             for task in tasks:
                 # 准备队列参数（直接传递分析参数，不嵌套）
                 queue_params = task.parameters.dict() if task.parameters else {}
 
                 # 添加任务元数据
-                queue_params.update({
-                    "task_id": task.task_id,
-                    "symbol": task.symbol,
-                    "stock_code": task.symbol,  # 兼容字段
-                    "user_id": str(task.user_id),
-                    "batch_id": task.batch_id,
-                    "created_at": task.created_at.isoformat() if task.created_at else None
-                })
+                queue_params.update(
+                    {
+                        "task_id": task.task_id,
+                        "symbol": task.symbol,
+                        "stock_code": task.symbol,  # 兼容字段
+                        "user_id": str(task.user_id),
+                        "batch_id": task.batch_id,
+                        "created_at": task.created_at.isoformat() if task.created_at else None,
+                    }
+                )
 
                 # 调用队列服务
                 await self.queue_service.enqueue_task(
-                    user_id=str(converted_user_id),
-                    symbol=task.symbol,
-                    params=queue_params,
-                    batch_id=task.batch_id
+                    user_id=str(converted_user_id), symbol=task.symbol, params=queue_params, batch_id=task.batch_id
                 )
-            
+
             logger.info(f"批量分析任务已提交: {batch_id} - {len(tasks)}个股票")
-            
+
             return {
                 "batch_id": batch_id,
                 "total_tasks": len(tasks),
                 "status": BatchStatus.PENDING,
-                "message": f"已提交{len(tasks)}个分析任务到队列"
+                "message": f"已提交{len(tasks)}个分析任务到队列",
             }
-            
+
         except Exception as e:
             logger.error(f"提交批量分析任务失败: {e}")
             raise
-    
+
     async def execute_analysis_task(
-        self, 
-        task: AnalysisTask,
-        progress_callback: Optional[Callable[[int, str], None]] = None
+        self, task: AnalysisTask, progress_callback: Callable[[int, str], None] | None = None
     ) -> AnalysisResult:
         """执行单个分析任务"""
         try:
             logger.info(f"开始执行分析任务: {task.task_id} - {task.symbol}")
-            
+
             # 更新任务状态
             await self._update_task_status(task.task_id, AnalysisStatus.PROCESSING, 0)
-            
+
             if progress_callback:
                 progress_callback(10, "初始化分析引擎...")
-            
+
             # 使用标准配置函数创建完整配置 - 与单股分析保持一致
             from app.core.unified_config import unified_config
 
-            quick_model = getattr(task.parameters, 'quick_analysis_model', None) or unified_config.get_quick_analysis_model()
-            deep_model = getattr(task.parameters, 'deep_analysis_model', None) or unified_config.get_deep_analysis_model()
+            quick_model = (
+                getattr(task.parameters, "quick_analysis_model", None) or unified_config.get_quick_analysis_model()
+            )
+            deep_model = (
+                getattr(task.parameters, "deep_analysis_model", None) or unified_config.get_deep_analysis_model()
+            )
 
             # 🔧 从数据库读取模型的完整配置参数
             quick_model_config = None
@@ -650,7 +684,7 @@ class AnalysisService:
                         "temperature": llm_config.temperature,
                         "timeout": llm_config.timeout,
                         "retry_times": llm_config.retry_times,
-                        "api_base": llm_config.api_base
+                        "api_base": llm_config.api_base,
                     }
 
                 if llm_config.model_name == deep_model:
@@ -659,7 +693,7 @@ class AnalysisService:
                         "temperature": llm_config.temperature,
                         "timeout": llm_config.timeout,
                         "retry_times": llm_config.retry_times,
-                        "api_base": llm_config.api_base
+                        "api_base": llm_config.api_base,
                     }
 
             # 根据模型名称动态查找供应商
@@ -674,34 +708,34 @@ class AnalysisService:
                 quick_model=quick_model,
                 deep_model=deep_model,
                 llm_provider=llm_provider,
-                market_type=getattr(task.parameters, 'market_type', "A股"),
+                market_type=getattr(task.parameters, "market_type", "A股"),
                 quick_model_config=quick_model_config,  # 传递模型配置
-                deep_model_config=deep_model_config     # 传递模型配置
+                deep_model_config=deep_model_config,  # 传递模型配置
             )
-            
+
             if progress_callback:
                 progress_callback(30, "创建分析图...")
-            
+
             # 获取TradingAgents实例
             trading_graph = self._get_trading_graph(config)
-            
+
             if progress_callback:
                 progress_callback(50, "执行股票分析...")
-            
+
             # 执行分析
             start_time = datetime.utcnow()
             analysis_date = task.parameters.analysis_date or datetime.now().strftime("%Y-%m-%d")
-            
+
             # 调用现有的分析方法
             _, decision = trading_graph.propagate(task.symbol, analysis_date)
-            
+
             execution_time = (datetime.utcnow() - start_time).total_seconds()
-            
+
             if progress_callback:
                 progress_callback(80, "处理分析结果...")
 
             # 从决策中提取模型信息
-            model_info = decision.get('model_info', 'Unknown') if isinstance(decision, dict) else 'Unknown'
+            model_info = decision.get("model_info", "Unknown") if isinstance(decision, dict) else "Unknown"
 
             # 构建结果
             result = AnalysisResult(
@@ -714,7 +748,7 @@ class AnalysisService:
                 detailed_analysis=decision,
                 execution_time=execution_time,
                 tokens_used=decision.get("tokens_used", 0),
-                model_info=model_info  # 🔥 添加模型信息字段
+                model_info=model_info,  # 🔥 添加模型信息字段
             )
 
             if progress_callback:
@@ -733,26 +767,27 @@ class AnalysisService:
             logger.info(f"分析任务完成: {task.task_id} - 耗时{execution_time:.2f}秒")
 
             return result
-            
+
         except Exception as e:
             logger.error(f"执行分析任务失败: {task.task_id} - {e}")
-            
+
             # 更新任务状态为失败
             error_result = AnalysisResult(error_message=str(e))
             await self._update_task_status(task.task_id, AnalysisStatus.FAILED, 0, error_result)
-            
+
             raise
-    
+
     async def _update_task_status(
         self,
         task_id: str,
         status: AnalysisStatus,
         progress: int,
-        result: Optional[AnalysisResult] = None,
+        result: AnalysisResult | None = None,
     ) -> None:
         """更新任务状态（委托至拆分的工具函数）"""
         try:
             from app.services.analysis.status_update_utils import perform_update_task_status
+
             await perform_update_task_status(task_id, status, progress, result)
         except Exception as e:
             logger.error(f"更新任务状态失败: {task_id} - {e}")
@@ -762,16 +797,17 @@ class AnalysisService:
         task_id: str,
         status: AnalysisStatus,
         progress_tracker: RedisProgressTracker,
-        result: Optional[AnalysisResult] = None,
+        result: AnalysisResult | None = None,
     ) -> None:
         """使用进度跟踪器更新任务状态（委托至拆分的工具函数）"""
         try:
             from app.services.analysis.status_update_utils import perform_update_task_status_with_tracker
+
             await perform_update_task_status_with_tracker(task_id, status, progress_tracker, result)
         except Exception as e:
             logger.error(f"更新任务状态失败: {task_id} - {e}")
 
-    async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task_status(self, task_id: str) -> dict[str, Any] | None:
         """获取任务状态"""
         try:
             # 先检查内存中的进度跟踪器
@@ -805,7 +841,7 @@ class AnalysisService:
                         "execution_time": None,
                         "tokens_used": None,
                         "result_data": task.get("result"),
-                        "error_message": None
+                        "error_message": None,
                     }
 
             # 从Redis缓存获取
@@ -828,6 +864,7 @@ class AnalysisService:
 
                 if task.get("started_at"):
                     from datetime import datetime
+
                     start_time = task.get("started_at")
                     if task.get("completed_at"):
                         # 任务已完成
@@ -855,7 +892,7 @@ class AnalysisService:
                     "estimated_total_time": estimated_total_time,
                     "start_time": task.get("started_at").isoformat() if task.get("started_at") else None,
                     "updated_at": task.get("updated_at", "").isoformat() if task.get("updated_at") else None,
-                    "result_data": task.get("result")
+                    "result_data": task.get("result"),
                 }
 
             return None
@@ -863,30 +900,24 @@ class AnalysisService:
         except Exception as e:
             logger.error(f"获取任务状态失败: {task_id} - {e}")
             return None
-    
+
     async def cancel_task(self, task_id: str) -> bool:
         """取消任务"""
         try:
             # 更新任务状态
             await self._update_task_status(task_id, AnalysisStatus.CANCELLED, 0)
-            
+
             # 从队列中移除（如果还在队列中）
             await self.queue_service.remove_task(task_id)
-            
+
             logger.info(f"任务已取消: {task_id}")
             return True
-            
+
         except Exception as e:
             logger.error(f"取消任务失败: {task_id} - {e}")
             return False
 
-    async def _record_token_usage(
-        self,
-        task: AnalysisTask,
-        result: AnalysisResult,
-        provider: str,
-        model_name: str
-    ):
+    async def _record_token_usage(self, task: AnalysisTask, result: AnalysisResult, provider: str, model_name: str):
         """记录 token 使用情况"""
         try:
             # 从结果中提取 token 使用信息
@@ -903,6 +934,7 @@ class AnalysisService:
 
             # 获取模型价格配置
             from app.services.config_service import config_service
+
             config = await config_service.get_system_config()
 
             # 查找对应的 LLM 配置
@@ -933,7 +965,7 @@ class AnalysisService:
                 currency=currency,
                 session_id=task.task_id,
                 analysis_type="stock_analysis",
-                stock_code=task.symbol
+                stock_code=task.symbol,
             )
 
             # 保存到数据库
@@ -942,14 +974,14 @@ class AnalysisService:
             if success:
                 logger.info(f"💰 记录使用成本: {provider}/{model_name} - ¥{cost:.4f}")
             else:
-                logger.warning(f"⚠️  记录使用成本失败")
+                logger.warning("⚠️  记录使用成本失败")
 
         except Exception as e:
             logger.error(f"❌ 记录 token 使用失败: {e}")
 
 
 # 全局分析服务实例（延迟初始化）
-analysis_service: Optional[AnalysisService] = None
+analysis_service: AnalysisService | None = None
 
 
 def get_analysis_service() -> AnalysisService:

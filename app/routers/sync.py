@@ -4,6 +4,7 @@ Sync router for stock basics synchronization
 - GET  /api/sync/stock_basics/status -> get last status
 Requires MongoDB initialized by app lifespan.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
@@ -28,4 +29,3 @@ async def get_stock_basics_status():
     service = get_basics_sync_service()
     status = await service.get_status()
     return {"success": True, "data": status}
-

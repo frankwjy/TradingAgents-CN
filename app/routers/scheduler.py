@@ -1,49 +1,48 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
 定时任务管理路由
 提供定时任务的查询、暂停、恢复、手动触发等功能
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from app.routers.auth_db import get_current_user
-from app.services.scheduler_service import get_scheduler_service, SchedulerService
 from app.core.response import ok
+from app.routers.auth_db import get_current_user
+from app.services.scheduler_service import SchedulerService, get_scheduler_service
 
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
 
 
 class JobTriggerRequest(BaseModel):
     """手动触发任务请求"""
+
     job_id: str
-    kwargs: Optional[Dict[str, Any]] = None
+    kwargs: dict[str, Any] | None = None
 
 
 class JobUpdateRequest(BaseModel):
     """更新任务请求"""
+
     job_id: str
-    enabled: Optional[bool] = None
-    cron: Optional[str] = None
+    enabled: bool | None = None
+    cron: str | None = None
 
 
 class JobMetadataUpdateRequest(BaseModel):
     """更新任务元数据请求"""
-    display_name: Optional[str] = None
-    description: Optional[str] = None
+
+    display_name: str | None = None
+    description: str | None = None
 
 
 @router.get("/jobs")
-async def list_jobs(
-    user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
-):
+async def list_jobs(user: dict = Depends(get_current_user), service: SchedulerService = Depends(get_scheduler_service)):
     """
     获取所有定时任务列表
-    
+
     Returns:
         任务列表，包含任务ID、名称、状态、下次执行时间等信息
     """
@@ -59,7 +58,7 @@ async def update_job_metadata_route(
     job_id: str,
     request: JobMetadataUpdateRequest,
     user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    service: SchedulerService = Depends(get_scheduler_service),
 ):
     """
     更新任务元数据（触发器名称和备注）
@@ -77,9 +76,7 @@ async def update_job_metadata_route(
 
     try:
         success = await service.update_job_metadata(
-            job_id,
-            display_name=request.display_name,
-            description=request.description
+            job_id, display_name=request.display_name, description=request.description
         )
         if success:
             return ok(message=f"任务 {job_id} 元数据已更新")
@@ -93,9 +90,7 @@ async def update_job_metadata_route(
 
 @router.get("/jobs/{job_id}")
 async def get_job_detail(
-    job_id: str,
-    user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    job_id: str, user: dict = Depends(get_current_user), service: SchedulerService = Depends(get_scheduler_service)
 ):
     """
     获取任务详情
@@ -119,23 +114,21 @@ async def get_job_detail(
 
 @router.post("/jobs/{job_id}/pause")
 async def pause_job(
-    job_id: str,
-    user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    job_id: str, user: dict = Depends(get_current_user), service: SchedulerService = Depends(get_scheduler_service)
 ):
     """
     暂停任务
-    
+
     Args:
         job_id: 任务ID
-        
+
     Returns:
         操作结果
     """
     # 检查管理员权限
     if not user.get("is_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可以暂停任务")
-    
+
     try:
         success = await service.pause_job(job_id)
         if success:
@@ -150,23 +143,21 @@ async def pause_job(
 
 @router.post("/jobs/{job_id}/resume")
 async def resume_job(
-    job_id: str,
-    user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    job_id: str, user: dict = Depends(get_current_user), service: SchedulerService = Depends(get_scheduler_service)
 ):
     """
     恢复任务
-    
+
     Args:
         job_id: 任务ID
-        
+
     Returns:
         操作结果
     """
     # 检查管理员权限
     if not user.get("is_admin"):
         raise HTTPException(status_code=403, detail="仅管理员可以恢复任务")
-    
+
     try:
         success = await service.resume_job(job_id)
         if success:
@@ -184,7 +175,7 @@ async def trigger_job(
     job_id: str,
     user: dict = Depends(get_current_user),
     service: SchedulerService = Depends(get_scheduler_service),
-    force: bool = Query(False, description="是否强制执行（跳过交易时间检查等）")
+    force: bool = Query(False, description="是否强制执行（跳过交易时间检查等）"),
 ):
     """
     手动触发任务执行
@@ -226,31 +217,26 @@ async def get_job_history(
     limit: int = Query(20, ge=1, le=100, description="返回数量限制"),
     offset: int = Query(0, ge=0, description="偏移量"),
     user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    service: SchedulerService = Depends(get_scheduler_service),
 ):
     """
     获取任务执行历史
-    
+
     Args:
         job_id: 任务ID
         limit: 返回数量限制
         offset: 偏移量
-        
+
     Returns:
         任务执行历史记录
     """
     try:
         history = await service.get_job_history(job_id, limit=limit, offset=offset)
         total = await service.count_job_history(job_id)
-        
+
         return ok(
-            data={
-                "history": history,
-                "total": total,
-                "limit": limit,
-                "offset": offset
-            },
-            message=f"获取到 {len(history)} 条执行记录"
+            data={"history": history, "total": total, "limit": limit, "offset": offset},
+            message=f"获取到 {len(history)} 条执行记录",
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取执行历史失败: {str(e)}")
@@ -260,40 +246,30 @@ async def get_job_history(
 async def get_all_history(
     limit: int = Query(50, ge=1, le=200, description="返回数量限制"),
     offset: int = Query(0, ge=0, description="偏移量"),
-    job_id: Optional[str] = Query(None, description="任务ID过滤"),
-    status: Optional[str] = Query(None, description="状态过滤: success/failed"),
+    job_id: str | None = Query(None, description="任务ID过滤"),
+    status: str | None = Query(None, description="状态过滤: success/failed"),
     user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    service: SchedulerService = Depends(get_scheduler_service),
 ):
     """
     获取所有任务执行历史
-    
+
     Args:
         limit: 返回数量限制
         offset: 偏移量
         job_id: 任务ID过滤
         status: 状态过滤
-        
+
     Returns:
         所有任务执行历史记录
     """
     try:
-        history = await service.get_all_history(
-            limit=limit,
-            offset=offset,
-            job_id=job_id,
-            status=status
-        )
+        history = await service.get_all_history(limit=limit, offset=offset, job_id=job_id, status=status)
         total = await service.count_all_history(job_id=job_id, status=status)
-        
+
         return ok(
-            data={
-                "history": history,
-                "total": total,
-                "limit": limit,
-                "offset": offset
-            },
-            message=f"获取到 {len(history)} 条执行记录"
+            data={"history": history, "total": total, "limit": limit, "offset": offset},
+            message=f"获取到 {len(history)} 条执行记录",
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取执行历史失败: {str(e)}")
@@ -301,12 +277,11 @@ async def get_all_history(
 
 @router.get("/stats")
 async def get_scheduler_stats(
-    user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    user: dict = Depends(get_current_user), service: SchedulerService = Depends(get_scheduler_service)
 ):
     """
     获取调度器统计信息
-    
+
     Returns:
         调度器统计信息，包括任务总数、运行中任务数、暂停任务数等
     """
@@ -319,8 +294,7 @@ async def get_scheduler_stats(
 
 @router.get("/health")
 async def scheduler_health_check(
-    user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    user: dict = Depends(get_current_user), service: SchedulerService = Depends(get_scheduler_service)
 ):
     """
     调度器健康检查
@@ -339,11 +313,11 @@ async def scheduler_health_check(
 async def get_job_executions(
     user: dict = Depends(get_current_user),
     service: SchedulerService = Depends(get_scheduler_service),
-    job_id: Optional[str] = Query(None, description="任务ID过滤"),
-    status: Optional[str] = Query(None, description="状态过滤（success/failed/missed/running）"),
-    is_manual: Optional[bool] = Query(None, description="是否手动触发（true=手动，false=自动，None=全部）"),
+    job_id: str | None = Query(None, description="任务ID过滤"),
+    status: str | None = Query(None, description="状态过滤（success/failed/missed/running）"),
+    is_manual: bool | None = Query(None, description="是否手动触发（true=手动，false=自动，None=全部）"),
     limit: int = Query(50, ge=1, le=200, description="返回数量限制"),
-    offset: int = Query(0, ge=0, description="偏移量")
+    offset: int = Query(0, ge=0, description="偏移量"),
 ):
     """
     获取任务执行历史
@@ -360,19 +334,13 @@ async def get_job_executions(
     """
     try:
         executions = await service.get_job_executions(
-            job_id=job_id,
-            status=status,
-            is_manual=is_manual,
-            limit=limit,
-            offset=offset
+            job_id=job_id, status=status, is_manual=is_manual, limit=limit, offset=offset
         )
         total = await service.count_job_executions(job_id=job_id, status=status, is_manual=is_manual)
-        return ok(data={
-            "items": executions,
-            "total": total,
-            "limit": limit,
-            "offset": offset
-        }, message=f"获取到 {len(executions)} 条执行记录")
+        return ok(
+            data={"items": executions, "total": total, "limit": limit, "offset": offset},
+            message=f"获取到 {len(executions)} 条执行记录",
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取执行历史失败: {str(e)}")
 
@@ -382,10 +350,10 @@ async def get_single_job_executions(
     job_id: str,
     user: dict = Depends(get_current_user),
     service: SchedulerService = Depends(get_scheduler_service),
-    status: Optional[str] = Query(None, description="状态过滤（success/failed/missed/running）"),
-    is_manual: Optional[bool] = Query(None, description="是否手动触发（true=手动，false=自动，None=全部）"),
+    status: str | None = Query(None, description="状态过滤（success/failed/missed/running）"),
+    is_manual: bool | None = Query(None, description="是否手动触发（true=手动，false=自动，None=全部）"),
     limit: int = Query(50, ge=1, le=200, description="返回数量限制"),
-    offset: int = Query(0, ge=0, description="偏移量")
+    offset: int = Query(0, ge=0, description="偏移量"),
 ):
     """
     获取指定任务的执行历史
@@ -402,28 +370,20 @@ async def get_single_job_executions(
     """
     try:
         executions = await service.get_job_executions(
-            job_id=job_id,
-            status=status,
-            is_manual=is_manual,
-            limit=limit,
-            offset=offset
+            job_id=job_id, status=status, is_manual=is_manual, limit=limit, offset=offset
         )
         total = await service.count_job_executions(job_id=job_id, status=status, is_manual=is_manual)
-        return ok(data={
-            "items": executions,
-            "total": total,
-            "limit": limit,
-            "offset": offset
-        }, message=f"获取到 {len(executions)} 条执行记录")
+        return ok(
+            data={"items": executions, "total": total, "limit": limit, "offset": offset},
+            message=f"获取到 {len(executions)} 条执行记录",
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取执行历史失败: {str(e)}")
 
 
 @router.get("/jobs/{job_id}/execution-stats")
 async def get_job_execution_stats(
-    job_id: str,
-    user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    job_id: str, user: dict = Depends(get_current_user), service: SchedulerService = Depends(get_scheduler_service)
 ):
     """
     获取任务执行统计信息
@@ -445,7 +405,7 @@ async def get_job_execution_stats(
 async def cancel_execution(
     execution_id: str,
     user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    service: SchedulerService = Depends(get_scheduler_service),
 ):
     """
     取消/终止任务执行
@@ -476,7 +436,7 @@ async def mark_execution_failed(
     execution_id: str,
     reason: str = Query("用户手动标记为失败", description="失败原因"),
     user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    service: SchedulerService = Depends(get_scheduler_service),
 ):
     """
     将执行记录标记为失败状态
@@ -506,7 +466,7 @@ async def mark_execution_failed(
 async def delete_execution(
     execution_id: str,
     user: dict = Depends(get_current_user),
-    service: SchedulerService = Depends(get_scheduler_service)
+    service: SchedulerService = Depends(get_scheduler_service),
 ):
     """
     删除执行记录

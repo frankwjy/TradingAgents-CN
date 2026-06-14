@@ -1,8 +1,8 @@
 import time
-import json
 
 # 导入统一日志系统
 from tradingagents.utils.logging_init import get_logger
+
 logger = get_logger("default")
 
 
@@ -23,18 +23,24 @@ def create_risky_debator(llm):
         trader_decision = state["trader_investment_plan"]
 
         # 📊 记录输入数据长度
-        logger.info(f"📊 [Risky Analyst] 输入数据长度统计:")
+        logger.info("📊 [Risky Analyst] 输入数据长度统计:")
         logger.info(f"  - market_report: {len(market_research_report):,} 字符")
         logger.info(f"  - sentiment_report: {len(sentiment_report):,} 字符")
         logger.info(f"  - news_report: {len(news_report):,} 字符")
         logger.info(f"  - fundamentals_report: {len(fundamentals_report):,} 字符")
         logger.info(f"  - trader_decision: {len(trader_decision):,} 字符")
         logger.info(f"  - history: {len(history):,} 字符")
-        total_length = (len(market_research_report) + len(sentiment_report) +
-                       len(news_report) + len(fundamentals_report) +
-                       len(trader_decision) + len(history) +
-                       len(current_safe_response) + len(current_neutral_response))
-        logger.info(f"  - 总Prompt长度: {total_length:,} 字符 (~{total_length//4:,} tokens)")
+        total_length = (
+            len(market_research_report)
+            + len(sentiment_report)
+            + len(news_report)
+            + len(fundamentals_report)
+            + len(trader_decision)
+            + len(history)
+            + len(current_safe_response)
+            + len(current_neutral_response)
+        )
+        logger.info(f"  - 总Prompt长度: {total_length:,} 字符 (~{total_length // 4:,} tokens)")
 
         prompt = f"""作为激进风险分析师，您的职责是积极倡导高回报、高风险的投资机会，强调大胆策略和竞争优势。在评估交易员的决策或计划时，请重点关注潜在的上涨空间、增长潜力和创新收益——即使这些伴随着较高的风险。使用提供的市场数据和情绪分析来加强您的论点，并挑战对立观点。具体来说，请直接回应保守和中性分析师提出的每个观点，用数据驱动的反驳和有说服力的推理进行反击。突出他们的谨慎态度可能错过的关键机会，或者他们的假设可能过于保守的地方。以下是交易员的决策：
 
@@ -50,8 +56,7 @@ def create_risky_debator(llm):
 
 积极参与，解决提出的任何具体担忧，反驳他们逻辑中的弱点，并断言承担风险的好处以超越市场常规。专注于辩论和说服，而不仅仅是呈现数据。挑战每个反驳点，强调为什么高风险方法是最优的。请用中文以对话方式输出，就像您在说话一样，不使用任何特殊格式。"""
 
-        logger.info(f"⏱️ [Risky Analyst] 开始调用LLM...")
-        import time
+        logger.info("⏱️ [Risky Analyst] 开始调用LLM...")
         llm_start_time = time.time()
 
         response = llm.invoke(prompt)
@@ -72,9 +77,7 @@ def create_risky_debator(llm):
             "latest_speaker": "Risky",
             "current_risky_response": argument,
             "current_safe_response": risk_debate_state.get("current_safe_response", ""),
-            "current_neutral_response": risk_debate_state.get(
-                "current_neutral_response", ""
-            ),
+            "current_neutral_response": risk_debate_state.get("current_neutral_response", ""),
             "count": new_count,
         }
 

@@ -1,17 +1,16 @@
 import logging
 import logging.config
-import sys
-from pathlib import Path
 import os
 import platform
-
-from app.core.logging_context import LoggingContextFilter, trace_id_var
+import sys
+from pathlib import Path
 
 # 🔥 在 Windows 上使用 concurrent-log-handler 避免文件占用问题
 _IS_WINDOWS = platform.system() == "Windows"
 if _IS_WINDOWS:
     try:
         from concurrent_log_handler import ConcurrentRotatingFileHandler
+
         _USE_CONCURRENT_HANDLER = True
     except ImportError:
         _USE_CONCURRENT_HANDLER = False
@@ -40,8 +39,10 @@ def resolve_logging_cfg_path() -> Path:
 
 class SimpleJsonFormatter(logging.Formatter):
     """Minimal JSON formatter without external deps."""
+
     def format(self, record: logging.LogRecord) -> str:
         import json
+
         obj = {
             "time": self.formatTime(record, "%Y-%m-%d %H:%M:%S"),
             "name": record.name,
@@ -63,6 +64,7 @@ def _parse_size(size_str: str) -> int:
             return 10 * 1024 * 1024
     return 10 * 1024 * 1024
 
+
 def setup_logging(log_level: str = "INFO"):
     """
     设置应用日志配置：
@@ -80,18 +82,14 @@ def setup_logging(log_level: str = "INFO"):
             with cfg_path.open("rb") as f:
                 toml_data = toml_loader.load(f)
 
-            print(f"🔍 [setup_logging] 成功加载TOML配置")
+            print("🔍 [setup_logging] 成功加载TOML配置")
 
             # 读取基础字段
             logging_root = toml_data.get("logging", {})
             level = logging_root.get("level", log_level)
             fmt_cfg = logging_root.get("format", {})
-            fmt_console = fmt_cfg.get(
-                "console", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-            fmt_file = fmt_cfg.get(
-                "file", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
+            fmt_console = fmt_cfg.get("console", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+            fmt_file = fmt_cfg.get("file", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             # 确保文本格式包含 trace_id（若未显式包含）
             if "%(trace_id)" not in str(fmt_console):
                 fmt_console = str(fmt_console) + " trace=%(trace_id)s"
@@ -132,7 +130,7 @@ def setup_logging(log_level: str = "INFO"):
             main_max_bytes = _parse_size(main_handler_cfg.get("max_size", "100MB"))
             main_backup_count = int(main_handler_cfg.get("backup_count", 5))
 
-            print(f"🔍 [setup_logging] 主日志文件配置:")
+            print("🔍 [setup_logging] 主日志文件配置:")
             print(f"  - 文件路径: {main_log}")
             print(f"  - 是否启用: {main_enabled}")
             print(f"  - 日志级别: {main_level}")
@@ -184,10 +182,14 @@ def setup_logging(log_level: str = "INFO"):
                 },
             }
 
-            print(f"🔍 [setup_logging] 开始构建handlers配置")
+            print("🔍 [setup_logging] 开始构建handlers配置")
 
             # 🔥 选择日志处理器类（Windows 使用 ConcurrentRotatingFileHandler）
-            handler_class = "concurrent_log_handler.ConcurrentRotatingFileHandler" if _USE_CONCURRENT_HANDLER else "logging.handlers.RotatingFileHandler"
+            handler_class = (
+                "concurrent_log_handler.ConcurrentRotatingFileHandler"
+                if _USE_CONCURRENT_HANDLER
+                else "logging.handlers.RotatingFileHandler"
+            )
 
             # 主日志文件（tradingagents.log）
             if main_enabled:
@@ -203,7 +205,7 @@ def setup_logging(log_level: str = "INFO"):
                     "filters": ["request_context"],
                 }
             else:
-                print(f"⚠️ [setup_logging] main_file handler 未启用")
+                print("⚠️ [setup_logging] main_file handler 未启用")
 
             # WebAPI日志文件
             if webapi_enabled:
@@ -276,9 +278,7 @@ def setup_logging(log_level: str = "INFO"):
             logging_config = {
                 "version": 1,
                 "disable_existing_loggers": False,
-                "filters": {
-                    "request_context": {"()": "app.core.logging_context.LoggingContextFilter"}
-                },
+                "filters": {"request_context": {"()": "app.core.logging_context.LoggingContextFilter"}},
                 "formatters": {
                     "console_fmt": {
                         "format": fmt_console,
@@ -288,55 +288,27 @@ def setup_logging(log_level: str = "INFO"):
                         "format": fmt_file,
                         "datefmt": "%Y-%m-%d %H:%M:%S",
                     },
-                    "json_console_fmt": {
-                        "()": "app.core.logging_config.SimpleJsonFormatter"
-                    },
-                    "json_file_fmt": {
-                        "()": "app.core.logging_config.SimpleJsonFormatter"
-                    },
+                    "json_console_fmt": {"()": "app.core.logging_config.SimpleJsonFormatter"},
+                    "json_file_fmt": {"()": "app.core.logging_config.SimpleJsonFormatter"},
                 },
                 "handlers": handlers_config,
                 "loggers": {
-                    "tradingagents": {
-                        "level": "INFO",
-                        "handlers": main_handlers,
-                        "propagate": False
-                    },
-                    "webapi": {
-                        "level": "INFO",
-                        "handlers": webapi_handlers,
-                        "propagate": False
-                    },
-                    "worker": {
-                        "level": "DEBUG",
-                        "handlers": worker_handlers,
-                        "propagate": False
-                    },
-                    "uvicorn": {
-                        "level": "INFO",
-                        "handlers": webapi_handlers,
-                        "propagate": False
-                    },
-                    "fastapi": {
-                        "level": "INFO",
-                        "handlers": webapi_handlers,
-                        "propagate": False
-                    },
-                    "app": {
-                        "level": "INFO",
-                        "handlers": main_handlers,
-                        "propagate": False
-                    },
+                    "tradingagents": {"level": "INFO", "handlers": main_handlers, "propagate": False},
+                    "webapi": {"level": "INFO", "handlers": webapi_handlers, "propagate": False},
+                    "worker": {"level": "DEBUG", "handlers": worker_handlers, "propagate": False},
+                    "uvicorn": {"level": "INFO", "handlers": webapi_handlers, "propagate": False},
+                    "fastapi": {"level": "INFO", "handlers": webapi_handlers, "propagate": False},
+                    "app": {"level": "INFO", "handlers": main_handlers, "propagate": False},
                 },
                 "root": {"level": level, "handlers": main_handlers},
             }
 
             print(f"🔍 [setup_logging] 最终handlers配置: {list(handlers_config.keys())}")
-            print(f"🔍 [setup_logging] 开始应用 dictConfig")
+            print("🔍 [setup_logging] 开始应用 dictConfig")
 
             logging.config.dictConfig(logging_config)
 
-            print(f"✅ [setup_logging] dictConfig 应用成功")
+            print("✅ [setup_logging] dictConfig 应用成功")
 
             logging.getLogger("webapi").info(f"Logging configured from {cfg_path}")
 
@@ -344,7 +316,7 @@ def setup_logging(log_level: str = "INFO"):
             if main_enabled:
                 test_logger = logging.getLogger("tradingagents")
                 test_logger.info(f"🔍 测试主日志文件写入: {main_log}")
-                print(f"🔍 [setup_logging] 已向 tradingagents logger 写入测试日志")
+                print("🔍 [setup_logging] 已向 tradingagents logger 写入测试日志")
 
             return
     except Exception as e:
@@ -356,7 +328,11 @@ def setup_logging(log_level: str = "INFO"):
     log_dir.mkdir(exist_ok=True)
 
     # 🔥 选择日志处理器类（Windows 使用 ConcurrentRotatingFileHandler）
-    handler_class = "concurrent_log_handler.ConcurrentRotatingFileHandler" if _USE_CONCURRENT_HANDLER else "logging.handlers.RotatingFileHandler"
+    handler_class = (
+        "concurrent_log_handler.ConcurrentRotatingFileHandler"
+        if _USE_CONCURRENT_HANDLER
+        else "logging.handlers.RotatingFileHandler"
+    )
 
     logging_config = {
         "version": 1,

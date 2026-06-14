@@ -1,14 +1,15 @@
 """
 Utility helpers for EnhancedScreeningService to separate analysis and conversion logic.
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from app.models.screening import ScreeningCondition, FieldType, BASIC_FIELDS_INFO
+from app.models.screening import BASIC_FIELDS_INFO, FieldType, ScreeningCondition
 
 
-def analyze_conditions(conditions: List[ScreeningCondition]) -> Dict[str, Any]:
+def analyze_conditions(conditions: list[ScreeningCondition]) -> dict[str, Any]:
     analysis = {
         "total_conditions": len(conditions),
         "database_supported_conditions": 0,
@@ -53,8 +54,8 @@ def analyze_conditions(conditions: List[ScreeningCondition]) -> Dict[str, Any]:
     return analysis
 
 
-def convert_conditions_to_traditional_format(conditions: List[ScreeningCondition]) -> Dict[str, Any]:
-    traditional_conditions: Dict[str, Any] = {}
+def convert_conditions_to_traditional_format(conditions: list[ScreeningCondition]) -> dict[str, Any]:
+    traditional_conditions: dict[str, Any] = {}
 
     for condition in conditions:
         field = condition.field
@@ -73,4 +74,3 @@ def convert_conditions_to_traditional_format(conditions: List[ScreeningCondition
             traditional_conditions[field] = {operator: value}
 
     return traditional_conditions
-

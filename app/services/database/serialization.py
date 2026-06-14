@@ -1,9 +1,11 @@
 """
 Serialization helpers for MongoDB documents.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
+
 from bson import ObjectId
 
 
@@ -36,4 +38,3 @@ def serialize_document(doc: dict) -> dict:
         else:
             serialized[key] = value
     return serialized
-

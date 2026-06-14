@@ -12,8 +12,7 @@ PDF 导出需要额外工具:
 import logging
 import os
 import tempfile
-from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +43,7 @@ PDFKIT_ERROR = None
 
 try:
     import pdfkit
+
     # 检查 wkhtmltopdf 是否安装
     try:
         pdfkit.configuration()
@@ -73,20 +73,20 @@ class ReportExporter:
         logger.info(f"  - export_available: {self.export_available}")
         logger.info(f"  - pandoc_available: {self.pandoc_available}")
         logger.info(f"  - pdfkit_available: {self.pdfkit_available}")
-    
-    def generate_markdown_report(self, report_doc: Dict[str, Any]) -> str:
+
+    def generate_markdown_report(self, report_doc: dict[str, Any]) -> str:
         """生成 Markdown 格式报告"""
         logger.info("📝 生成 Markdown 报告...")
-        
+
         stock_symbol = report_doc.get("stock_symbol", "unknown")
         analysis_date = report_doc.get("analysis_date", "")
         analysts = report_doc.get("analysts", [])
         research_depth = report_doc.get("research_depth", 1)
         reports = report_doc.get("reports", {})
         summary = report_doc.get("summary", "")
-        
+
         content_parts = []
-        
+
         # 标题和元信息
         content_parts.append(f"# {stock_symbol} 股票分析报告")
         content_parts.append("")
@@ -97,7 +97,7 @@ class ReportExporter:
         content_parts.append("")
         content_parts.append("---")
         content_parts.append("")
-        
+
         # 执行摘要
         if summary:
             content_parts.append("## 📊 执行摘要")
@@ -106,18 +106,18 @@ class ReportExporter:
             content_parts.append("")
             content_parts.append("---")
             content_parts.append("")
-        
+
         # 各模块内容
         module_order = [
             "company_overview",
-            "financial_analysis", 
+            "financial_analysis",
             "technical_analysis",
             "market_analysis",
             "risk_analysis",
             "valuation_analysis",
-            "investment_recommendation"
+            "investment_recommendation",
         ]
-        
+
         module_titles = {
             "company_overview": "🏢 公司概况",
             "financial_analysis": "💰 财务分析",
@@ -125,9 +125,9 @@ class ReportExporter:
             "market_analysis": "🌍 市场分析",
             "risk_analysis": "⚠️ 风险分析",
             "valuation_analysis": "💎 估值分析",
-            "investment_recommendation": "🎯 投资建议"
+            "investment_recommendation": "🎯 投资建议",
         }
-        
+
         # 按顺序添加模块
         for module_key in module_order:
             if module_key in reports:
@@ -140,7 +140,7 @@ class ReportExporter:
                     content_parts.append("")
                     content_parts.append("---")
                     content_parts.append("")
-        
+
         # 添加其他未列出的模块
         for module_key, module_content in reports.items():
             if module_key not in module_order:
@@ -151,19 +151,19 @@ class ReportExporter:
                     content_parts.append("")
                     content_parts.append("---")
                     content_parts.append("")
-        
+
         # 页脚
         content_parts.append("")
         content_parts.append("---")
         content_parts.append("")
         content_parts.append("*本报告由 TradingAgents-CN 自动生成*")
         content_parts.append("")
-        
+
         markdown_content = "\n".join(content_parts)
         logger.info(f"✅ Markdown 报告生成完成，长度: {len(markdown_content)} 字符")
-        
+
         return markdown_content
-    
+
     def _clean_markdown_for_pandoc(self, md_content: str) -> str:
         """清理 Markdown 内容，避免 pandoc 解析问题"""
         import re
@@ -175,20 +175,20 @@ class ReportExporter:
 
         # 🔥 移除可能导致竖排的 HTML 标签和样式
         # 移除 writing-mode 相关的样式
-        md_content = re.sub(r'<[^>]*writing-mode[^>]*>', '', md_content, flags=re.IGNORECASE)
-        md_content = re.sub(r'<[^>]*text-orientation[^>]*>', '', md_content, flags=re.IGNORECASE)
+        md_content = re.sub(r"<[^>]*writing-mode[^>]*>", "", md_content, flags=re.IGNORECASE)
+        md_content = re.sub(r"<[^>]*text-orientation[^>]*>", "", md_content, flags=re.IGNORECASE)
 
         # 移除 <div> 标签中的 style 属性（可能包含竖排样式）
-        md_content = re.sub(r'<div\s+style="[^"]*">', '<div>', md_content, flags=re.IGNORECASE)
-        md_content = re.sub(r'<span\s+style="[^"]*">', '<span>', md_content, flags=re.IGNORECASE)
+        md_content = re.sub(r'<div\s+style="[^"]*">', "<div>", md_content, flags=re.IGNORECASE)
+        md_content = re.sub(r'<span\s+style="[^"]*">', "<span>", md_content, flags=re.IGNORECASE)
 
         # 🔥 移除可能导致问题的 HTML 标签
         # 保留基本的 Markdown 格式，移除复杂的 HTML
-        md_content = re.sub(r'<style[^>]*>.*?</style>', '', md_content, flags=re.DOTALL | re.IGNORECASE)
+        md_content = re.sub(r"<style[^>]*>.*?</style>", "", md_content, flags=re.DOTALL | re.IGNORECASE)
 
         # 🔥 确保所有段落都是正常的横排文本
         # 在每个段落前后添加明确的换行，避免 Pandoc 误判
-        lines = md_content.split('\n')
+        lines = md_content.split("\n")
         cleaned_lines = []
         for line in lines:
             # 跳过空行
@@ -197,13 +197,15 @@ class ReportExporter:
                 continue
 
             # 如果是标题、列表、表格等 Markdown 语法，保持原样
-            if line.strip().startswith(('#', '-', '*', '|', '>', '```', '1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.')):
+            if line.strip().startswith(
+                ("#", "-", "*", "|", ">", "```", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.")
+            ):
                 cleaned_lines.append(line)
             else:
                 # 普通段落：确保没有特殊字符导致竖排
                 cleaned_lines.append(line)
 
-        md_content = '\n'.join(cleaned_lines)
+        md_content = "\n".join(cleaned_lines)
 
         return md_content
 
@@ -280,8 +282,8 @@ pre, code {
 }
 </style>
 """
-    
-    def generate_docx_report(self, report_doc: Dict[str, Any]) -> bytes:
+
+    def generate_docx_report(self, report_doc: dict[str, Any]) -> bytes:
         """生成 Word 文档格式报告"""
         logger.info("📄 开始生成 Word 文档...")
 
@@ -293,19 +295,21 @@ pre, code {
 
         try:
             # 创建临时文件
-            with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp_file:
+            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp_file:
                 output_file = tmp_file.name
 
             logger.info(f"📁 临时文件路径: {output_file}")
 
             # Pandoc 参数
             extra_args = [
-                '--from=markdown-yaml_metadata_block',  # 禁用 YAML 元数据块解析
-                '--standalone',  # 生成独立文档
-                '--wrap=preserve',  # 保留换行
-                '--columns=120',  # 设置列宽
-                '-M', 'lang=zh-CN',  # 🔥 明确指定语言为简体中文
-                '-M', 'dir=ltr',  # 🔥 明确指定文本方向为从左到右
+                "--from=markdown-yaml_metadata_block",  # 禁用 YAML 元数据块解析
+                "--standalone",  # 生成独立文档
+                "--wrap=preserve",  # 保留换行
+                "--columns=120",  # 设置列宽
+                "-M",
+                "lang=zh-CN",  # 🔥 明确指定语言为简体中文
+                "-M",
+                "dir=ltr",  # 🔥 明确指定文本方向为从左到右
             ]
 
             # 清理内容
@@ -313,11 +317,7 @@ pre, code {
 
             # 转换为 Word
             pypandoc.convert_text(
-                cleaned_content,
-                'docx',
-                format='markdown',
-                outputfile=output_file,
-                extra_args=extra_args
+                cleaned_content, "docx", format="markdown", outputfile=output_file, extra_args=extra_args
             )
 
             logger.info("✅ pypandoc 转换完成")
@@ -325,6 +325,7 @@ pre, code {
             # 🔥 后处理：修复 Word 文档中的文本方向
             try:
                 from docx import Document
+
                 doc = Document(output_file)
 
                 # 修复所有段落的文本方向
@@ -333,7 +334,7 @@ pre, code {
                     if paragraph._element.pPr is not None:
                         # 移除可能的竖排设置
                         for child in list(paragraph._element.pPr):
-                            if 'textDirection' in child.tag or 'bidi' in child.tag:
+                            if "textDirection" in child.tag or "bidi" in child.tag:
                                 paragraph._element.pPr.remove(child)
 
                 # 修复表格中的文本方向
@@ -343,7 +344,7 @@ pre, code {
                             for paragraph in cell.paragraphs:
                                 if paragraph._element.pPr is not None:
                                     for child in list(paragraph._element.pPr):
-                                        if 'textDirection' in child.tag or 'bidi' in child.tag:
+                                        if "textDirection" in child.tag or "bidi" in child.tag:
                                             paragraph._element.pPr.remove(child)
 
                 # 保存修复后的文档
@@ -355,7 +356,7 @@ pre, code {
                 logger.warning(f"⚠️ Word 文档文本方向修复失败: {e}")
 
             # 读取生成的文件
-            with open(output_file, 'rb') as f:
+            with open(output_file, "rb") as f:
                 docx_content = f.read()
 
             logger.info(f"✅ Word 文档生成成功，大小: {len(docx_content)} 字节")
@@ -364,26 +365,26 @@ pre, code {
             os.unlink(output_file)
 
             return docx_content
-            
+
         except Exception as e:
             logger.error(f"❌ Word 文档生成失败: {e}", exc_info=True)
             # 清理临时文件
             try:
-                if 'output_file' in locals() and os.path.exists(output_file):
+                if "output_file" in locals() and os.path.exists(output_file):
                     os.unlink(output_file)
             except:
                 pass
             raise Exception(f"生成 Word 文档失败: {e}")
-    
+
     def _markdown_to_html(self, md_content: str) -> str:
         """将 Markdown 转换为 HTML"""
         import markdown
 
         # 配置 Markdown 扩展
         extensions = [
-            'markdown.extensions.tables',  # 表格支持
-            'markdown.extensions.fenced_code',  # 代码块支持
-            'markdown.extensions.nl2br',  # 换行支持
+            "markdown.extensions.tables",  # 表格支持
+            "markdown.extensions.fenced_code",  # 代码块支持
+            "markdown.extensions.nl2br",  # 换行支持
         ]
 
         # 转换为 HTML
@@ -617,13 +618,13 @@ pre, code {
 
         # 配置选项
         options = {
-            'encoding': 'UTF-8',
-            'enable-local-file-access': None,
-            'page-size': 'A4',
-            'margin-top': '20mm',
-            'margin-right': '20mm',
-            'margin-bottom': '20mm',
-            'margin-left': '20mm',
+            "encoding": "UTF-8",
+            "enable-local-file-access": None,
+            "page-size": "A4",
+            "margin-top": "20mm",
+            "margin-right": "20mm",
+            "margin-bottom": "20mm",
+            "margin-left": "20mm",
         }
 
         # 生成 PDF
@@ -632,7 +633,7 @@ pre, code {
         logger.info(f"✅ pdfkit PDF 生成成功，大小: {len(pdf_bytes)} 字节")
         return pdf_bytes
 
-    def generate_pdf_report(self, report_doc: Dict[str, Any]) -> bytes:
+    def generate_pdf_report(self, report_doc: dict[str, Any]) -> bytes:
         """生成 PDF 格式报告（使用 pdfkit + wkhtmltopdf）"""
         logger.info("📊 开始生成 PDF 文档...")
 
@@ -665,4 +666,3 @@ pre, code {
 
 # 创建全局导出器实例
 report_exporter = ReportExporter()
-

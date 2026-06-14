@@ -1,25 +1,28 @@
 """
 Cleanup routines extracted from DatabaseService.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any
 
 from app.core.database import get_mongo_db
 
 
-async def cleanup_old_data(days: int) -> Dict[str, Any]:
+async def cleanup_old_data(days: int) -> dict[str, Any]:
     db = get_mongo_db()
     cutoff_date = datetime.utcnow() - timedelta(days=days)
 
     deleted_count = 0
     cleaned_collections = []
 
-    res = await db.analysis_tasks.delete_many({
-        "created_at": {"$lt": cutoff_date},
-        "status": {"$in": ["completed", "failed"]},
-    })
+    res = await db.analysis_tasks.delete_many(
+        {
+            "created_at": {"$lt": cutoff_date},
+            "status": {"$in": ["completed", "failed"]},
+        }
+    )
     if res.deleted_count:
         deleted_count += res.deleted_count
         cleaned_collections.append(f"analysis_tasks: {res.deleted_count}")
@@ -41,17 +44,19 @@ async def cleanup_old_data(days: int) -> Dict[str, Any]:
     }
 
 
-async def cleanup_analysis_results(days: int) -> Dict[str, Any]:
+async def cleanup_analysis_results(days: int) -> dict[str, Any]:
     db = get_mongo_db()
     cutoff_date = datetime.utcnow() - timedelta(days=days)
 
     deleted_count = 0
     cleaned_collections = []
 
-    res = await db.analysis_tasks.delete_many({
-        "created_at": {"$lt": cutoff_date},
-        "status": {"$in": ["completed", "failed"]},
-    })
+    res = await db.analysis_tasks.delete_many(
+        {
+            "created_at": {"$lt": cutoff_date},
+            "status": {"$in": ["completed", "failed"]},
+        }
+    )
     if res.deleted_count:
         deleted_count += res.deleted_count
         cleaned_collections.append(f"analysis_tasks: {res.deleted_count}")
@@ -68,7 +73,7 @@ async def cleanup_analysis_results(days: int) -> Dict[str, Any]:
     }
 
 
-async def cleanup_operation_logs(days: int) -> Dict[str, Any]:
+async def cleanup_operation_logs(days: int) -> dict[str, Any]:
     db = get_mongo_db()
     cutoff_date = datetime.utcnow() - timedelta(days=days)
 
@@ -95,4 +100,3 @@ async def cleanup_operation_logs(days: int) -> Dict[str, Any]:
         "cleaned_collections": cleaned_collections,
         "cutoff_date": cutoff_date.isoformat(),
     }
-

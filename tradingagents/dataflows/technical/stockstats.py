@@ -1,9 +1,12 @@
+import os
+from typing import Annotated
+
 import pandas as pd
 import yfinance as yf
 from stockstats import wrap
-from typing import Annotated
-import os
+
 from tradingagents.config.config_manager import config_manager
+
 
 def get_config():
     """兼容性包装函数"""
@@ -14,12 +17,8 @@ class StockstatsUtils:
     @staticmethod
     def get_stock_stats(
         symbol: Annotated[str, "ticker symbol for the company"],
-        indicator: Annotated[
-            str, "quantitative indicators based off of the stock data for the company"
-        ],
-        curr_date: Annotated[
-            str, "curr date for retrieving stock price data, YYYY-mm-dd"
-        ],
+        indicator: Annotated[str, "quantitative indicators based off of the stock data for the company"],
+        curr_date: Annotated[str, "curr date for retrieving stock price data, YYYY-mm-dd"],
         data_dir: Annotated[
             str,
             "directory where the stock data is stored.",

@@ -4,14 +4,15 @@
 - 所有端点均需鉴权 (Bearer Token)
 - 路径前缀在 main.py 中挂载为 /api，当前路由自身前缀为 /stocks
 """
-from typing import Optional, Dict, Any, List, Tuple
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+
 import logging
 import re
 
-from app.routers.auth_db import get_current_user
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
 from app.core.database import get_mongo_db
 from app.core.response import ok
+from app.routers.auth_db import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def _zfill_code(code: str) -> str:
         return str(code)
 
 
-def _detect_market_and_code(code: str) -> Tuple[str, str]:
+def _detect_market_and_code(code: str) -> tuple[str, str]:
     """
     检测股票代码的市场类型并标准化代码
 
@@ -44,30 +45,30 @@ def _detect_market_and_code(code: str) -> Tuple[str, str]:
     code = code.strip().upper()
 
     # 港股：带.HK后缀
-    if code.endswith('.HK'):
-        return ('HK', code[:-3].zfill(5))  # 移除.HK，补齐到5位
+    if code.endswith(".HK"):
+        return ("HK", code[:-3].zfill(5))  # 移除.HK，补齐到5位
 
     # 美股：纯字母
-    if re.match(r'^[A-Z]+$', code):
-        return ('US', code)
+    if re.match(r"^[A-Z]+$", code):
+        return ("US", code)
 
     # 港股：4-5位数字
-    if re.match(r'^\d{4,5}$', code):
-        return ('HK', code.zfill(5))  # 补齐到5位
+    if re.match(r"^\d{4,5}$", code):
+        return ("HK", code.zfill(5))  # 补齐到5位
 
     # A股：6位数字
-    if re.match(r'^\d{6}$', code):
-        return ('CN', code)
+    if re.match(r"^\d{6}$", code):
+        return ("CN", code)
 
     # 默认当作A股处理
-    return ('CN', _zfill_code(code))
+    return ("CN", _zfill_code(code))
 
 
 @router.get("/{code}/quote", response_model=dict)
 async def get_quote(
     code: str,
     force_refresh: bool = Query(False, description="是否强制刷新（跳过缓存）"),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
     获取股票实时行情（支持A股/港股/美股）
@@ -91,7 +92,7 @@ async def get_quote(
     market, normalized_code = _detect_market_and_code(code)
 
     # 港股和美股：使用新服务
-    if market in ['HK', 'US']:
+    if market in ["HK", "US"]:
         from app.services.foreign_stock_service import ForeignStockService
 
         db = get_mongo_db()  # 不需要 await，直接返回数据库对象
@@ -102,10 +103,7 @@ async def get_quote(
             return ok(data=quote)
         except Exception as e:
             logger.error(f"获取{market}股票{code}行情失败: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"获取行情失败: {str(e)}"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"获取行情失败: {str(e)}")
 
     # A股：使用现有逻辑
     db = get_mongo_db()
@@ -117,23 +115,27 @@ async def get_quote(
     # 🔥 调试日志：查看查询结果
     logger.info(f"🔍 查询 market_quotes: code={code6}")
     if q:
-        logger.info(f"  ✅ 找到数据: volume={q.get('volume')}, amount={q.get('amount')}, volume_ratio={q.get('volume_ratio')}")
+        logger.info(
+            f"  ✅ 找到数据: volume={q.get('volume')}, amount={q.get('amount')}, volume_ratio={q.get('volume_ratio')}"
+        )
     else:
-        logger.info(f"  ❌ 未找到数据")
+        logger.info("  ❌ 未找到数据")
 
     # 🔥 基础信息 - 按数据源优先级查询
     from app.core.unified_config import UnifiedConfigManager
+
     config = UnifiedConfigManager()
     data_source_configs = await config.get_data_source_configs_async()
 
     # 提取启用的数据源，按优先级排序
     enabled_sources = [
-        ds.type.lower() for ds in data_source_configs
-        if ds.enabled and ds.type.lower() in ['tushare', 'akshare', 'baostock']
+        ds.type.lower()
+        for ds in data_source_configs
+        if ds.enabled and ds.type.lower() in ["tushare", "akshare", "baostock"]
     ]
 
     if not enabled_sources:
-        enabled_sources = ['tushare', 'akshare', 'baostock']
+        enabled_sources = ["tushare", "akshare", "baostock"]
 
     # 按优先级查询基础信息
     b = None
@@ -183,7 +185,7 @@ async def get_quote(
             amplitude_date = (q or {}).get("trade_date")  # 来自实时数据
             logger.info(f"  ✅ 振幅计算成功: {amplitude}%")
         else:
-            logger.warning(f"  ⚠️ 数据不完整，无法计算振幅")
+            logger.warning("  ⚠️ 数据不完整，无法计算振幅")
     except Exception as e:
         logger.warning(f"  ❌ 计算振幅失败: {e}")
         amplitude = None
@@ -215,9 +217,9 @@ async def get_quote(
 @router.get("/{code}/fundamentals", response_model=dict)
 async def get_fundamentals(
     code: str,
-    source: Optional[str] = Query(None, description="数据源 (tushare/akshare/baostock/multi_source)"),
+    source: str | None = Query(None, description="数据源 (tushare/akshare/baostock/multi_source)"),
     force_refresh: bool = Query(False, description="是否强制刷新（跳过缓存）"),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
     获取基础面快照（支持A股/港股/美股）
@@ -235,7 +237,7 @@ async def get_fundamentals(
     market, normalized_code = _detect_market_and_code(code)
 
     # 港股和美股：使用新服务
-    if market in ['HK', 'US']:
+    if market in ["HK", "US"]:
         from app.services.foreign_stock_service import ForeignStockService
 
         db = get_mongo_db()  # 不需要 await，直接返回数据库对象
@@ -246,10 +248,7 @@ async def get_fundamentals(
             return ok(data=info)
         except Exception as e:
             logger.error(f"获取{market}股票{code}基础信息失败: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"获取基础信息失败: {str(e)}"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"获取基础信息失败: {str(e)}")
 
     # A股：使用现有逻辑
     db = get_mongo_db()
@@ -264,8 +263,7 @@ async def get_fundamentals(
         b = await db["stock_basic_info"].find_one(query, {"_id": 0})
         if not b:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"未找到该股票在数据源 {source} 中的基础信息"
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"未找到该股票在数据源 {source} 中的基础信息"
             )
     else:
         # 🔥 未指定数据源，按优先级查询
@@ -294,24 +292,26 @@ async def get_fundamentals(
     try:
         # 获取数据源优先级配置
         from app.core.unified_config import UnifiedConfigManager
+
         config = UnifiedConfigManager()
         data_source_configs = await config.get_data_source_configs_async()
 
         # 提取启用的数据源，按优先级排序
         enabled_sources = [
-            ds.type.lower() for ds in data_source_configs
-            if ds.enabled and ds.type.lower() in ['tushare', 'akshare', 'baostock']
+            ds.type.lower()
+            for ds in data_source_configs
+            if ds.enabled and ds.type.lower() in ["tushare", "akshare", "baostock"]
         ]
 
         if not enabled_sources:
-            enabled_sources = ['tushare', 'akshare', 'baostock']
+            enabled_sources = ["tushare", "akshare", "baostock"]
 
         # 按数据源优先级查询财务数据
         for data_source in enabled_sources:
             financial_data = await db["stock_financial_data"].find_one(
                 {"$or": [{"symbol": code6}, {"code": code6}], "data_source": data_source},
                 {"_id": 0},
-                sort=[("report_period", -1)]  # 按报告期降序，获取该数据源的最新数据
+                sort=[("report_period", -1)],  # 按报告期降序，获取该数据源的最新数据
             )
             if financial_data:
                 logger.info(f"✅ 使用数据源 {data_source} 的财务数据 (报告期: {financial_data.get('report_period')})")
@@ -323,15 +323,12 @@ async def get_fundamentals(
         logger.error(f"获取财务数据失败: {e}")
 
     # 3. 获取实时PE/PB（优先使用实时计算）
-    from tradingagents.dataflows.realtime_metrics import get_pe_pb_with_fallback
     import asyncio
 
+    from tradingagents.dataflows.realtime_metrics import get_pe_pb_with_fallback
+
     # 在线程池中执行同步的实时计算
-    realtime_metrics = await asyncio.to_thread(
-        get_pe_pb_with_fallback,
-        code6,
-        db.client
-    )
+    realtime_metrics = await asyncio.to_thread(get_pe_pb_with_fallback, code6, db.client)
 
     # 4. 构建返回数据
     # 🔥 优先使用实时市值，降级到 stock_basic_info 的静态市值
@@ -342,43 +339,33 @@ async def get_fundamentals(
         "code": code6,
         "name": b.get("name"),
         "industry": b.get("industry"),  # 行业（如：银行、软件服务）
-        "market": b.get("market"),      # 交易所（如：主板、创业板）
-
+        "market": b.get("market"),  # 交易所（如：主板、创业板）
         # 板块信息：使用 market 字段（主板/创业板/科创板/北交所等）
         "sector": b.get("market"),
-
         # 估值指标（优先使用实时计算，降级到 stock_basic_info）
         "pe": realtime_metrics.get("pe") or b.get("pe"),
         "pb": realtime_metrics.get("pb") or b.get("pb"),
         "pe_ttm": realtime_metrics.get("pe_ttm") or b.get("pe_ttm"),
         "pb_mrq": realtime_metrics.get("pb_mrq") or b.get("pb_mrq"),
-
         # 🔥 市销率（PS）- 动态计算（使用实时市值）
         "ps": None,
         "ps_ttm": None,
-
         # PE/PB 数据来源标识
         "pe_source": realtime_metrics.get("source", "unknown"),
         "pe_is_realtime": realtime_metrics.get("is_realtime", False),
         "pe_updated_at": realtime_metrics.get("updated_at"),
-
         # ROE（优先从 stock_financial_data 获取，其次从 stock_basic_info）
         "roe": None,
-
         # 负债率（从 stock_financial_data 获取）
         "debt_ratio": None,
-
         # 市值：优先使用实时市值，降级到静态市值
         "total_mv": total_mv,
         "circ_mv": b.get("circ_mv"),
-
         # 🔥 市值来源标识
         "mv_is_realtime": bool(realtime_market_cap),
-
         # 交易指标（可能为空）
         "turnover_rate": b.get("turnover_rate"),
         "volume_ratio": b.get("volume_ratio"),
-
         "updated_at": b.get("updated_at"),
     }
 
@@ -425,7 +412,7 @@ async def get_kline(
     limit: int = 120,
     adj: str = "none",
     force_refresh: bool = Query(False, description="是否强制刷新（跳过缓存）"),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """
     获取K线数据（支持A股/港股/美股）
@@ -439,11 +426,13 @@ async def get_kline(
     - 收盘后：检查历史数据是否有当天数据，没有则从 market_quotes 获取
     """
     import logging
-    from datetime import datetime, timedelta, time as dtime
+    from datetime import datetime, timedelta
+    from datetime import time as dtime
     from zoneinfo import ZoneInfo
+
     logger = logging.getLogger(__name__)
 
-    valid_periods = {"day","week","month","5m","15m","30m","60m"}
+    valid_periods = {"day", "week", "month", "5m", "15m", "30m", "60m"}
     if period not in valid_periods:
         raise HTTPException(status_code=400, detail=f"不支持的period: {period}")
 
@@ -451,7 +440,7 @@ async def get_kline(
     market, normalized_code = _detect_market_and_code(code)
 
     # 港股和美股：使用新服务
-    if market in ['HK', 'US']:
+    if market in ["HK", "US"]:
         from app.services.foreign_stock_service import ForeignStockService
 
         db = get_mongo_db()  # 不需要 await，直接返回数据库对象
@@ -459,18 +448,10 @@ async def get_kline(
 
         try:
             kline_data = await service.get_kline(market, normalized_code, period, limit, force_refresh)
-            return ok(data={
-                'code': normalized_code,
-                'period': period,
-                'items': kline_data,
-                'source': 'cache_or_api'
-            })
+            return ok(data={"code": normalized_code, "period": period, "items": kline_data, "source": "cache_or_api"})
         except Exception as e:
             logger.error(f"获取{market}股票{code}K线数据失败: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"获取K线数据失败: {str(e)}"
-            )
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"获取K线数据失败: {str(e)}")
 
     # A股：使用现有逻辑
     code_padded = normalized_code
@@ -486,12 +467,13 @@ async def get_kline(
         "5m": "5min",
         "15m": "15min",
         "30m": "30min",
-        "60m": "60min"
+        "60m": "60min",
     }
     mongodb_period = period_map.get(period, "daily")
 
     # 获取当前时间（北京时间）
     from app.core.config import settings
+
     tz = ZoneInfo(settings.TIMEZONE)
     now = datetime.now(tz)
     today_str_yyyymmdd = now.strftime("%Y%m%d")  # 格式：20251028（用于查询）
@@ -500,28 +482,33 @@ async def get_kline(
     # 1. 优先从 MongoDB 缓存获取
     try:
         from tradingagents.dataflows.cache.mongodb_cache_adapter import get_mongodb_cache_adapter
+
         adapter = get_mongodb_cache_adapter()
 
         # 计算日期范围
         end_date = now.strftime("%Y-%m-%d")
         start_date = (now - timedelta(days=limit * 2)).strftime("%Y-%m-%d")
 
-        logger.info(f"🔍 尝试从 MongoDB 获取 K 线数据: {code_padded}, period={period} (MongoDB: {mongodb_period}), limit={limit}")
+        logger.info(
+            f"🔍 尝试从 MongoDB 获取 K 线数据: {code_padded}, period={period} (MongoDB: {mongodb_period}), limit={limit}"
+        )
         df = adapter.get_historical_data(code_padded, start_date, end_date, period=mongodb_period)
 
         if df is not None and not df.empty:
             # 转换 DataFrame 为列表格式
             items = []
             for _, row in df.tail(limit).iterrows():
-                items.append({
-                    "time": row.get("trade_date", row.get("date", "")),  # 前端期望 time 字段
-                    "open": float(row.get("open", 0)),
-                    "high": float(row.get("high", 0)),
-                    "low": float(row.get("low", 0)),
-                    "close": float(row.get("close", 0)),
-                    "volume": float(row.get("volume", row.get("vol", 0))),
-                    "amount": float(row.get("amount", 0)) if "amount" in row else None,
-                })
+                items.append(
+                    {
+                        "time": row.get("trade_date", row.get("date", "")),  # 前端期望 time 字段
+                        "open": float(row.get("open", 0)),
+                        "high": float(row.get("high", 0)),
+                        "low": float(row.get("low", 0)),
+                        "close": float(row.get("close", 0)),
+                        "volume": float(row.get("volume", row.get("vol", 0))),
+                        "amount": float(row.get("amount", 0)) if "amount" in row else None,
+                    }
+                )
             source = "mongodb"
             logger.info(f"✅ 从 MongoDB 获取到 {len(items)} 条 K 线数据")
     except Exception as e:
@@ -529,19 +516,19 @@ async def get_kline(
 
     # 2. 如果 MongoDB 没有数据，降级到外部 API（带超时保护）
     if not items:
-        logger.info(f"📡 MongoDB 无数据，降级到外部 API")
+        logger.info("📡 MongoDB 无数据，降级到外部 API")
         try:
             import asyncio
+
             from app.services.data_sources.manager import DataSourceManager
 
             mgr = DataSourceManager()
             # 添加 10 秒超时保护
             items, source = await asyncio.wait_for(
-                asyncio.to_thread(mgr.get_kline_with_fallback, code_padded, period, limit, adj_norm),
-                timeout=10.0
+                asyncio.to_thread(mgr.get_kline_with_fallback, code_padded, period, limit, adj_norm), timeout=10.0
             )
         except asyncio.TimeoutError:
-            logger.error(f"❌ 外部 API 获取 K 线超时（10秒）")
+            logger.error("❌ 外部 API 获取 K 线超时（10秒）")
             raise HTTPException(status_code=504, detail="获取K线数据超时，请稍后重试")
         except Exception as e:
             logger.error(f"❌ 外部 API 获取 K 线失败: {e}")
@@ -551,10 +538,7 @@ async def get_kline(
     if period == "day" and items:
         try:
             # 检查历史数据中是否已有当天的数据（支持两种日期格式）
-            has_today_data = any(
-                item.get("time") in [today_str_yyyymmdd, today_str_formatted]
-                for item in items
-            )
+            has_today_data = any(item.get("time") in [today_str_yyyymmdd, today_str_formatted] for item in items)
 
             # 判断是否在交易时间内或收盘后缓冲期
             current_time = now.time()
@@ -562,11 +546,8 @@ async def get_kline(
 
             # 交易时间：9:30-11:30, 13:00-15:00
             # 收盘后缓冲期：15:00-15:30（确保获取到收盘价）
-            is_trading_time = (
-                is_weekday and (
-                    (dtime(9, 30) <= current_time <= dtime(11, 30)) or
-                    (dtime(13, 0) <= current_time <= dtime(15, 30))
-                )
+            is_trading_time = is_weekday and (
+                (dtime(9, 30) <= current_time <= dtime(11, 30)) or (dtime(13, 0) <= current_time <= dtime(15, 30))
             )
 
             # 🔥 只在交易时间或收盘后缓冲期内才添加实时数据
@@ -574,7 +555,9 @@ async def get_kline(
             should_fetch_realtime = is_trading_time
 
             if should_fetch_realtime:
-                logger.info(f"🔥 尝试从 market_quotes 获取当天实时数据: {code_padded} (交易时间: {is_trading_time}, 已有当天数据: {has_today_data})")
+                logger.info(
+                    f"🔥 尝试从 market_quotes 获取当天实时数据: {code_padded} (交易时间: {is_trading_time}, 已有当天数据: {has_today_data})"
+                )
 
                 db = get_mongo_db()
                 market_quotes_coll = db["market_quotes"]
@@ -616,44 +599,45 @@ async def get_kline(
         "limit": limit,
         "adj": adj if adj else "none",
         "source": source,
-        "items": items or []
+        "items": items or [],
     }
     return ok(data)
 
 
 @router.get("/{code}/news", response_model=dict)
-async def get_news(code: str, days: int = 30, limit: int = 50, include_announcements: bool = True, current_user: dict = Depends(get_current_user)):
+async def get_news(
+    code: str,
+    days: int = 30,
+    limit: int = 50,
+    include_announcements: bool = True,
+    current_user: dict = Depends(get_current_user),
+):
     """获取新闻与公告（支持A股、港股、美股）"""
     from app.services.foreign_stock_service import ForeignStockService
-    from app.services.news_data_service import get_news_data_service, NewsQueryParams
+    from app.services.news_data_service import NewsQueryParams, get_news_data_service
 
     # 检测股票类型
     market, normalized_code = _detect_market_and_code(code)
 
-    if market == 'US':
+    if market == "US":
         # 美股：使用 ForeignStockService
         service = ForeignStockService()
         result = await service.get_us_news(normalized_code, days=days, limit=limit)
         return ok(result)
-    elif market == 'HK':
+    elif market == "HK":
         # 港股：暂时返回空数据（TODO: 实现港股新闻）
-        data = {
-            "code": normalized_code,
-            "days": days,
-            "limit": limit,
-            "source": "none",
-            "items": []
-        }
+        data = {"code": normalized_code, "days": days, "limit": limit, "source": "none", "items": []}
         return ok(data)
     else:
         # A股：直接调用同步服务的查询方法（包含智能回退逻辑）
         try:
-            logger.info(f"=" * 80)
+            logger.info("=" * 80)
             logger.info(f"📰 开始获取新闻: code={code}, normalized_code={normalized_code}, days={days}, limit={limit}")
 
             # 直接使用 news_data 路由的查询逻辑
-            from app.services.news_data_service import get_news_data_service, NewsQueryParams
-            from datetime import datetime, timedelta
+            from datetime import datetime
+
+            from app.services.news_data_service import NewsQueryParams, get_news_data_service
             from app.worker.akshare_sync_service import get_akshare_sync_service
 
             service = await get_news_data_service()
@@ -664,17 +648,12 @@ async def get_news(code: str, days: int = 30, limit: int = 50, include_announcem
 
             # 🔥 不设置 start_time 限制，直接查询最新的 N 条新闻
             # 因为数据库中的新闻可能不是最近几天的，而是历史数据
-            params = NewsQueryParams(
-                symbol=normalized_code,
-                limit=limit,
-                sort_by="publish_time",
-                sort_order=-1
-            )
+            params = NewsQueryParams(symbol=normalized_code, limit=limit, sort_by="publish_time", sort_order=-1)
 
             logger.info(f"🔍 查询参数: symbol={params.symbol}, limit={params.limit} (不限制时间范围)")
 
             # 1. 先从数据库查询
-            logger.info(f"📊 步骤1: 从数据库查询新闻...")
+            logger.info("📊 步骤1: 从数据库查询新闻...")
             news_list = await service.query_news(params)
             logger.info(f"📊 数据库查询结果: 返回 {len(news_list)} 条新闻")
 
@@ -685,16 +664,13 @@ async def get_news(code: str, days: int = 30, limit: int = 50, include_announcem
                 logger.info(f"⚠️ 数据库无新闻数据，调用同步服务获取: {normalized_code}")
                 try:
                     # 🔥 调用同步服务，传入单个股票代码列表
-                    logger.info(f"📡 步骤2: 调用同步服务...")
+                    logger.info("📡 步骤2: 调用同步服务...")
                     await sync_service.sync_news_data(
-                        symbols=[normalized_code],
-                        max_news_per_stock=limit,
-                        force_update=False,
-                        favorites_only=False
+                        symbols=[normalized_code], max_news_per_stock=limit, force_update=False, favorites_only=False
                     )
 
                     # 重新查询
-                    logger.info(f"🔄 步骤3: 重新从数据库查询...")
+                    logger.info("🔄 步骤3: 重新从数据库查询...")
                     news_list = await service.query_news(params)
                     logger.info(f"📊 重新查询结果: 返回 {len(news_list)} 条新闻")
                     data_source = "realtime"
@@ -703,7 +679,7 @@ async def get_news(code: str, days: int = 30, limit: int = 50, include_announcem
                     logger.error(f"❌ 同步服务异常: {e}", exc_info=True)
 
             # 转换为旧格式（兼容前端）
-            logger.info(f"🔄 步骤4: 转换数据格式...")
+            logger.info("🔄 步骤4: 转换数据格式...")
             items = []
             for news in news_list:
                 # 🔥 将 datetime 对象转换为 ISO 字符串
@@ -711,15 +687,17 @@ async def get_news(code: str, days: int = 30, limit: int = 50, include_announcem
                 if isinstance(publish_time, datetime):
                     publish_time = publish_time.isoformat()
 
-                items.append({
-                    "title": news.get("title", ""),
-                    "source": news.get("source", ""),
-                    "time": publish_time,
-                    "url": news.get("url", ""),
-                    "type": "news",
-                    "content": news.get("content", ""),
-                    "summary": news.get("summary", "")
-                })
+                items.append(
+                    {
+                        "title": news.get("title", ""),
+                        "source": news.get("source", ""),
+                        "time": publish_time,
+                        "url": news.get("url", ""),
+                        "type": "news",
+                        "content": news.get("content", ""),
+                        "summary": news.get("summary", ""),
+                    }
+                )
 
             logger.info(f"✅ 转换完成: {len(items)} 条新闻")
 
@@ -729,11 +707,11 @@ async def get_news(code: str, days: int = 30, limit: int = 50, include_announcem
                 "limit": limit,
                 "include_announcements": include_announcements,
                 "source": data_source,
-                "items": items
+                "items": items,
             }
 
             logger.info(f"📤 最终返回: source={data_source}, items_count={len(items)}")
-            logger.info(f"=" * 80)
+            logger.info("=" * 80)
             return ok(data)
 
         except Exception as e:
@@ -744,7 +722,6 @@ async def get_news(code: str, days: int = 30, limit: int = 50, include_announcem
                 "limit": limit,
                 "include_announcements": include_announcements,
                 "source": None,
-                "items": []
+                "items": [],
             }
             return ok(data)
-

@@ -8,25 +8,31 @@ Stock basics synchronization service
 
 This module is async-friendly and offloads blocking IO (Tushare/pandas) to a thread.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import UpdateOne
 
-from app.core.database import get_mongo_db
 from app.core.config import settings
-
+from app.core.database import get_mongo_db
+from app.services.basics_sync import (
+    fetch_daily_basic_mv_map as _fetch_daily_basic_mv_map_util,
+)
+from app.services.basics_sync import (
+    fetch_latest_roe_map as _fetch_latest_roe_map_util,
+)
 from app.services.basics_sync import (
     fetch_stock_basic_df as _fetch_stock_basic_df_util,
+)
+from app.services.basics_sync import (
     find_latest_trade_date as _find_latest_trade_date_util,
-    fetch_daily_basic_mv_map as _fetch_daily_basic_mv_map_util,
-    fetch_latest_roe_map as _fetch_latest_roe_map_util,
 )
 
 logger = logging.getLogger(__name__)
@@ -38,22 +44,22 @@ JOB_KEY = "stock_basics"
 
 @dataclass
 class SyncStats:
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
+    started_at: str | None = None
+    finished_at: str | None = None
     status: str = "idle"  # idle|running|success|failed
     total: int = 0
     inserted: int = 0
     updated: int = 0
     errors: int = 0
     message: str = ""
-    last_trade_date: Optional[str] = None  # YYYYMMDD
+    last_trade_date: str | None = None  # YYYYMMDD
 
 
 class BasicsSyncService:
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
         self._running = False
-        self._last_status: Optional[Dict[str, Any]] = None
+        self._last_status: dict[str, Any] | None = None
         self._indexes_ensured = False
 
     async def _ensure_indexes(self, db: AsyncIOMotorDatabase) -> None:
@@ -66,10 +72,9 @@ class BasicsSyncService:
             logger.info("📊 检查并创建股票基础信息索引...")
 
             # 1. 复合唯一索引：股票代码+数据源（用于 upsert）
-            await collection.create_index([
-                ("code", 1),
-                ("source", 1)
-            ], unique=True, name="code_source_unique", background=True)
+            await collection.create_index(
+                [("code", 1), ("source", 1)], unique=True, name="code_source_unique", background=True
+            )
 
             # 2. 股票代码索引（查询所有数据源）
             await collection.create_index([("code", 1)], name="code_index", background=True)
@@ -110,7 +115,7 @@ class BasicsSyncService:
             # 索引创建失败不应该阻止服务启动
             logger.warning(f"⚠️ 创建索引时出现警告（可能已存在）: {e}")
 
-    async def get_status(self, db: Optional[AsyncIOMotorDatabase] = None) -> Dict[str, Any]:
+    async def get_status(self, db: AsyncIOMotorDatabase | None = None) -> dict[str, Any]:
         """Return last persisted status; falls back to in-memory snapshot."""
         try:
             db = db or get_mongo_db()
@@ -122,16 +127,13 @@ class BasicsSyncService:
             logger.warning(f"Failed to load sync status from DB: {e}")
         return self._last_status or {"job": JOB_KEY, "status": "idle"}
 
-    async def _persist_status(self, db: AsyncIOMotorDatabase, stats: Dict[str, Any]) -> None:
+    async def _persist_status(self, db: AsyncIOMotorDatabase, stats: dict[str, Any]) -> None:
         stats["job"] = JOB_KEY
         await db[STATUS_COLLECTION].update_one({"job": JOB_KEY}, {"$set": stats}, upsert=True)
         self._last_status = {k: v for k, v in stats.items() if k != "_id"}
 
     async def _execute_bulk_write_with_retry(
-        self,
-        db: AsyncIOMotorDatabase,
-        operations: List,
-        max_retries: int = 3
+        self, db: AsyncIOMotorDatabase, operations: list, max_retries: int = 3
     ) -> tuple:
         """
         执行批量写入，带重试机制
@@ -159,7 +161,7 @@ class BasicsSyncService:
             except asyncio.TimeoutError as e:
                 retry_count += 1
                 if retry_count < max_retries:
-                    wait_time = 2 ** retry_count  # 指数退避：2秒、4秒、8秒
+                    wait_time = 2**retry_count  # 指数退避：2秒、4秒、8秒
                     logger.warning(f"⚠️ 批量写入超时 (第{retry_count}次重试)，等待{wait_time}秒后重试...")
                     await asyncio.sleep(wait_time)
                 else:
@@ -172,7 +174,7 @@ class BasicsSyncService:
 
         return inserted, updated
 
-    async def run_full_sync(self, force: bool = False) -> Dict[str, Any]:
+    async def run_full_sync(self, force: bool = False) -> dict[str, Any]:
         """Run a full sync. If already running, return current status unless force."""
         async with self._lock:
             if self._running and not force:
@@ -217,7 +219,7 @@ class BasicsSyncService:
             roe_map = await asyncio.to_thread(self._fetch_latest_roe_map)
 
             # Step 3: Upsert into MongoDB (batched bulk writes)
-            ops: List[UpdateOne] = []
+            ops: list[UpdateOne] = []
             now_iso = datetime.utcnow().isoformat()
             for _, row in stock_df.iterrows():  # type: ignore
                 name = row.get("name") or ""
@@ -314,9 +316,7 @@ class BasicsSyncService:
                         doc[field] = daily_metrics[field]
 
                 # 🔥 使用 (code, source) 联合查询条件
-                ops.append(
-                    UpdateOne({"code": code, "source": "tushare"}, {"$set": doc}, upsert=True)
-                )
+                ops.append(UpdateOne({"code": code, "source": "tushare"}, {"$set": doc}, upsert=True))
 
             inserted = 0
             updated = 0
@@ -332,7 +332,7 @@ class BasicsSyncService:
                     updated += batch_updated
                 else:
                     errors += 1
-                    logger.error(f"Bulk write error on batch {i//BATCH}")
+                    logger.error(f"Bulk write error on batch {i // BATCH}")
 
             stats.total = len(ops)
             stats.inserted = inserted
@@ -366,11 +366,11 @@ class BasicsSyncService:
         """Delegate to basics_sync.utils (blocking)"""
         return _find_latest_trade_date_util()
 
-    def _fetch_daily_basic_mv_map(self, trade_date: str) -> Dict[str, Dict[str, float]]:
+    def _fetch_daily_basic_mv_map(self, trade_date: str) -> dict[str, dict[str, float]]:
         """Delegate to basics_sync.utils (blocking)"""
         return _fetch_daily_basic_mv_map_util(trade_date)
 
-    def _fetch_latest_roe_map(self) -> Dict[str, Dict[str, float]]:
+    def _fetch_latest_roe_map(self) -> dict[str, dict[str, float]]:
         """Delegate to basics_sync.utils (blocking)"""
         return _fetch_latest_roe_map_util()
 
@@ -396,11 +396,11 @@ class BasicsSyncService:
             return code
 
         # 根据代码判断交易所
-        if code.startswith(('60', '68', '90')):
+        if code.startswith(("60", "68", "90")):
             return f"{code}.SS"  # 上海证券交易所
-        elif code.startswith(('00', '30', '20')):
+        elif code.startswith(("00", "30", "20")):
             return f"{code}.SZ"  # 深圳证券交易所
-        elif code.startswith(('8', '4')):
+        elif code.startswith(("8", "4")):
             return f"{code}.BJ"  # 北京证券交易所
         else:
             # 无法识别的代码，返回原始代码（确保不为空）
@@ -408,7 +408,7 @@ class BasicsSyncService:
 
 
 # Singleton accessor
-_basics_sync_service: Optional[BasicsSyncService] = None
+_basics_sync_service: BasicsSyncService | None = None
 
 
 def get_basics_sync_service() -> BasicsSyncService:
@@ -416,4 +416,3 @@ def get_basics_sync_service() -> BasicsSyncService:
     if _basics_sync_service is None:
         _basics_sync_service = BasicsSyncService()
     return _basics_sync_service
-
