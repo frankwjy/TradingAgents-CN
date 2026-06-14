@@ -1,12 +1,12 @@
-import logging
 import contextvars
+import logging
 from typing import Optional
 
 # Shared contextvar for trace id across the whole process
 trace_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("trace_id", default="-")
 
 # Additional request-scoped context for structured logging
-request_context_var: contextvars.ContextVar[dict] = contextvars.ContextVar("request_context", default={})
+request_context_var: contextvars.ContextVar[dict] = contextvars.ContextVar("request_context")
 
 
 def set_request_context(**kwargs) -> contextvars.Token:
@@ -14,7 +14,7 @@ def set_request_context(**kwargs) -> contextvars.Token:
     return request_context_var.set(kwargs)
 
 
-def clear_request_context(token: Optional[contextvars.Token] = None) -> None:
+def clear_request_context(token: contextvars.Token | None = None) -> None:
     """Clear request-scoped context."""
     if token:
         request_context_var.reset(token)
@@ -36,12 +36,12 @@ class LoggingContextFilter(logging.Filter):
 
         # Inject request context fields into log record
         try:
-            ctx = request_context_var.get()
-            for key, value in ctx.items():
-                if not hasattr(record, key):
-                    setattr(record, key, value)
-        except Exception:
+            ctx = request_context_var.get(None)
+            if ctx:
+                for key, value in ctx.items():
+                    if not hasattr(record, key):
+                        setattr(record, key, value)
+        except LookupError:
             pass
 
         return True
-

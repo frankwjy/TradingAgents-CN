@@ -92,7 +92,7 @@ async def get_current_user(authorization: str | None = Header(default=None)) -> 
 
     token = authorization.split(" ", 1)[1]
     logger.debug(f"🎫 提取的token长度: {len(token)}")
-    logger.debug(f"🎫 Token已提取（出于安全考虑不记录token内容）")
+    logger.debug("🎫 Token已提取（出于安全考虑不记录token内容）")
 
     token_data = AuthService.verify_token(token)
     logger.debug(f"🔍 Token验证结果: {token_data is not None}")

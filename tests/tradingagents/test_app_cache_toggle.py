@@ -1,10 +1,10 @@
+import builtins
 import os
 import types
-import builtins
+from typing import Any, Dict, Optional
+
 import pandas as pd
 import pytest
-
-from typing import Any, Dict, Optional
 
 
 class DummyDBManager:
@@ -36,6 +36,7 @@ def test_basics_prefers_app_cache_when_enabled(monkeypatch):
 
     # Ensure API branch is reachable in case of fallback
     import tradingagents.dataflows.stock_data_service as sds_mod
+
     monkeypatch.setattr(sds_mod, "ENHANCED_FETCHER_AVAILABLE", True, raising=False)
 
     from tradingagents.dataflows.stock_data_service import StockDataService
@@ -46,10 +47,10 @@ def test_basics_prefers_app_cache_when_enabled(monkeypatch):
 
     called = {"api": False}
 
-    def fake_from_mongo(stock_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def fake_from_mongo(stock_code: str | None = None) -> dict[str, Any] | None:
         return {"code": stock_code or "000001", "name": "平安银行", "source": "mongo"}
 
-    def fake_from_api(stock_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def fake_from_api(stock_code: str | None = None) -> dict[str, Any] | None:
         called["api"] = True
         return {"code": stock_code or "000001", "name": "平安银行", "source": "api"}
 
@@ -67,6 +68,7 @@ def test_basics_fallback_to_api_when_cache_miss(monkeypatch):
 
     # Ensure API branch enabled
     import tradingagents.dataflows.stock_data_service as sds_mod
+
     monkeypatch.setattr(sds_mod, "ENHANCED_FETCHER_AVAILABLE", True, raising=False)
 
     from tradingagents.dataflows.stock_data_service import StockDataService
@@ -76,10 +78,10 @@ def test_basics_fallback_to_api_when_cache_miss(monkeypatch):
 
     called = {"api": False}
 
-    def miss_from_mongo(stock_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def miss_from_mongo(stock_code: str | None = None) -> dict[str, Any] | None:
         return None
 
-    def fake_from_api(stock_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def fake_from_api(stock_code: str | None = None) -> dict[str, Any] | None:
         called["api"] = True
         return {"code": stock_code or "000001", "name": "平安银行", "source": "api"}
 
@@ -99,6 +101,7 @@ def test_basics_direct_first_when_disabled(monkeypatch):
 
     # Ensure API branch enabled
     import tradingagents.dataflows.stock_data_service as sds_mod
+
     monkeypatch.setattr(sds_mod, "ENHANCED_FETCHER_AVAILABLE", True, raising=False)
 
     from tradingagents.dataflows.stock_data_service import StockDataService
@@ -108,11 +111,11 @@ def test_basics_direct_first_when_disabled(monkeypatch):
 
     order = []
 
-    def fake_from_api(stock_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def fake_from_api(stock_code: str | None = None) -> dict[str, Any] | None:
         order.append("api")
         return {"code": stock_code or "000001", "name": "平安银行", "source": "api"}
 
-    def fake_from_mongo(stock_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def fake_from_mongo(stock_code: str | None = None) -> dict[str, Any] | None:
         order.append("mongo")
         return {"code": stock_code or "000001", "name": "平安银行", "source": "mongo"}
 
@@ -135,20 +138,22 @@ def test_realtime_quotes_prefers_app_market_quotes(monkeypatch):
 
     def fake_get_market_quote_dataframe(symbol: str):
         # Return a minimal dataframe resembling the adapter output
-        return pd.DataFrame([
-            {
-                "code": symbol,
-                "date": "20250101",
-                "open": 10.0,
-                "high": 11.0,
-                "low": 9.5,
-                "close": 10.5,
-                "volume": 1000000,
-                "amount": 5000000,
-                "pct_chg": 1.2,
-                "change": 0.12,
-            }
-        ])
+        return pd.DataFrame(
+            [
+                {
+                    "code": symbol,
+                    "date": "20250101",
+                    "open": 10.0,
+                    "high": 11.0,
+                    "low": 9.5,
+                    "close": 10.5,
+                    "volume": 1000000,
+                    "amount": 5000000,
+                    "pct_chg": 1.2,
+                    "change": 0.12,
+                }
+            ]
+        )
 
     monkeypatch.setattr(app_cache_adapter, "get_market_quote_dataframe", fake_get_market_quote_dataframe)
 
@@ -156,10 +161,12 @@ def test_realtime_quotes_prefers_app_market_quotes(monkeypatch):
 
     # Create adapter and stub provider to avoid real Tushare calls
     ada = TushareDataAdapter(enable_cache=False)
+
     class DummyProvider:
         def get_stock_daily(self, symbol, start_date, end_date):
             # Should not be called because cache will be used
             return pd.DataFrame()
+
     ada.provider = DummyProvider()
 
     # Also make standardizer identity to simplify assertion
@@ -169,4 +176,3 @@ def test_realtime_quotes_prefers_app_market_quotes(monkeypatch):
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
     assert set(["open", "high", "low", "close"]).issubset(df.columns)
-

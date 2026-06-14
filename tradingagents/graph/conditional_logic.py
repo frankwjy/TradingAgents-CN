@@ -57,7 +57,9 @@ class ConditionalLogic:
 
         # 死循环修复: 消息数量安全检查
         if len(messages) > MAX_MESSAGES:
-            logger.warning(f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear Market")
+            logger.warning(
+                f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear Market"
+            )
             return "Msg Clear Market"
 
         # 如果已经有报告内容，说明分析已完成，不再循环
@@ -101,7 +103,9 @@ class ConditionalLogic:
 
         # 死循环修复: 消息数量安全检查
         if len(messages) > MAX_MESSAGES:
-            logger.warning(f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear Social")
+            logger.warning(
+                f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear Social"
+            )
             return "Msg Clear Social"
 
         # 如果已经有报告内容，说明分析已完成，不再循环
@@ -145,7 +149,9 @@ class ConditionalLogic:
 
         # 死循环修复: 消息数量安全检查
         if len(messages) > MAX_MESSAGES:
-            logger.warning(f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear News")
+            logger.warning(
+                f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear News"
+            )
             return "Msg Clear News"
 
         # 如果已经有报告内容，说明分析已完成，不再循环
@@ -218,7 +224,9 @@ class ConditionalLogic:
 
         # 死循环修复: 消息数量安全检查
         if len(messages) > MAX_MESSAGES:
-            logger.warning(f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear Fundamentals")
+            logger.warning(
+                f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear Fundamentals"
+            )
             return "Msg Clear Fundamentals"
 
         # ✅ 优先级2: 如果有tool_calls，去执行工具

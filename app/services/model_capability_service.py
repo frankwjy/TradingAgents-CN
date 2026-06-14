@@ -414,7 +414,7 @@ class ModelCapabilityService:
         suitable_roles: List[str],
         features: List[str],
         recommended_depths: List[str],
-        performance_metrics: Optional[Dict[str, Any]] = None
+        performance_metrics: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
         保存模型能力配置到数据库
@@ -432,6 +432,7 @@ class ModelCapabilityService:
         """
         try:
             from pymongo import MongoClient
+
             from app.core.config import settings
 
             # 使用同步 MongoDB 客户端
@@ -473,16 +474,13 @@ class ModelCapabilityService:
                     "features": features,
                     "recommended_depths": recommended_depths,
                     "performance_metrics": performance_metrics,
-                    "enabled": True
+                    "enabled": True,
                 }
                 llm_configs.append(new_config)
                 logger.info(f"✅ 添加模型 {model_name} 的能力配置")
 
             # 更新数据库
-            result = collection.update_one(
-                {"_id": doc["_id"]},
-                {"$set": {"llm_configs": llm_configs}}
-            )
+            result = collection.update_one({"_id": doc["_id"]}, {"$set": {"llm_configs": llm_configs}})
 
             client.close()
 
@@ -497,10 +495,7 @@ class ModelCapabilityService:
             logger.error(f"❌ 保存模型能力配置失败: {e}", exc_info=True)
             return False
 
-    def save_model_capabilities_batch(
-        self,
-        capabilities: List[Dict[str, Any]]
-    ) -> Dict[str, int]:
+    def save_model_capabilities_batch(self, capabilities: List[Dict[str, Any]]) -> Dict[str, int]:
         """
         批量保存模型能力配置
 
@@ -512,6 +507,7 @@ class ModelCapabilityService:
         """
         try:
             from pymongo import MongoClient
+
             from app.core.config import settings
 
             # 使用同步 MongoDB 客户端
@@ -561,23 +557,20 @@ class ModelCapabilityService:
                         "features": cap.get("features", []),
                         "recommended_depths": cap.get("recommended_depths", ["快速", "基础", "标准"]),
                         "performance_metrics": cap.get("performance_metrics"),
-                        "enabled": True
+                        "enabled": True,
                     }
                     llm_configs.append(new_config)
                     result_stats["added"] += 1
 
             # 更新数据库
-            update_result = collection.update_one(
-                {"_id": doc["_id"]},
-                {"$set": {"llm_configs": llm_configs}}
-            )
+            update_result = collection.update_one({"_id": doc["_id"]}, {"$set": {"llm_configs": llm_configs}})
 
             client.close()
 
             if update_result.modified_count > 0 or update_result.matched_count > 0:
                 logger.info(f"✅ 批量保存模型能力配置成功: {result_stats}")
             else:
-                logger.warning(f"⚠️ 批量保存模型能力配置失败")
+                logger.warning("⚠️ 批量保存模型能力配置失败")
                 result_stats["failed"] = len(capabilities)
 
             return result_stats

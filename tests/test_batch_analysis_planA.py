@@ -6,8 +6,10 @@
 - 轮询 /api/analysis/tasks/{task_id}/status 直至 completed
 - 获取 /api/analysis/tasks/{task_id}/result 并验证关键字段
 """
-import time
+
 import json
+import time
+
 import requests
 
 BASE_URL = "http://localhost:8000"
@@ -42,8 +44,8 @@ def submit_batch(token: str):
             "selected_analysts": ["market", "fundamentals"],
             "include_sentiment": True,
             "include_risk": True,
-            "language": "zh-CN"
-        }
+            "language": "zh-CN",
+        },
     }
     r = requests.post(f"{BASE_URL}/api/analysis/batch", json=payload, headers=headers, timeout=30)
     r.raise_for_status()
@@ -106,13 +108,15 @@ def main():
             # 验证关键字段
             assert "decision" in res and isinstance(res["decision"], dict), f"missing decision for {stock}"
             assert "summary" in res and isinstance(res["summary"], str), f"missing summary for {stock}"
-            assert "recommendation" in res and isinstance(res["recommendation"], str), f"missing recommendation for {stock}"
+            assert "recommendation" in res and isinstance(res["recommendation"], str), (
+                f"missing recommendation for {stock}"
+            )
             assert "reports" in res and isinstance(res["reports"], dict), f"missing reports for {stock}"
             print(f"🎉 {stock} 结果OK：summary={len(res['summary'])} chars, rec={len(res['recommendation'])} chars")
         else:
             print(f"❌ 任务未完成: {stock} ({task_id})")
 
-    with open('batch_results_sample.json', 'w', encoding='utf-8') as f:
+    with open("batch_results_sample.json", "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
     print("💾 已保存结果样本到 batch_results_sample.json")
 
@@ -122,6 +126,5 @@ def main():
         print("⚠️ 部分任务未完成或失败，请检查日志")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-

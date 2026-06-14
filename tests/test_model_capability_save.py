@@ -4,8 +4,10 @@
 测试模型能力配置的保存、更新和批量操作功能。
 """
 
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+
 from app.services.model_capability_service import ModelCapabilityService
 
 
@@ -37,18 +39,19 @@ class TestModelCapabilitySave:
         """测试更新已有模型的能力配置"""
         mock_doc = {
             "_id": "test_id",
-            "llm_configs": [{
-                "model_name": "qwen-turbo",
-                "capability_level": 1,
-                "suitable_roles": ["quick_analysis"],
-                "features": ["tool_calling"],
-                "recommended_depths": ["快速"]
-            }]
+            "llm_configs": [
+                {
+                    "model_name": "qwen-turbo",
+                    "capability_level": 1,
+                    "suitable_roles": ["quick_analysis"],
+                    "features": ["tool_calling"],
+                    "recommended_depths": ["快速"],
+                }
+            ],
         }
         mock_client, mock_collection = _build_mock_mongo(mock_doc)
 
-        with patch('pymongo.MongoClient', return_value=mock_client), \
-             patch('app.core.config.settings') as mock_settings:
+        with patch("pymongo.MongoClient", return_value=mock_client), patch("app.core.config.settings") as mock_settings:
             mock_settings.MONGO_URI = "mongodb://localhost:27017"
             mock_settings.MONGO_DB = "test_db"
 
@@ -58,7 +61,7 @@ class TestModelCapabilitySave:
                 suitable_roles=["both"],
                 features=["tool_calling", "reasoning"],
                 recommended_depths=["基础", "标准", "深度"],
-                performance_metrics={"speed": 4, "cost": 3, "quality": 4}
+                performance_metrics={"speed": 4, "cost": 3, "quality": 4},
             )
 
         assert result is True
@@ -72,8 +75,7 @@ class TestModelCapabilitySave:
         mock_doc = {"_id": "test_id", "llm_configs": []}
         mock_client, mock_collection = _build_mock_mongo(mock_doc)
 
-        with patch('pymongo.MongoClient', return_value=mock_client), \
-             patch('app.core.config.settings') as mock_settings:
+        with patch("pymongo.MongoClient", return_value=mock_client), patch("app.core.config.settings") as mock_settings:
             mock_settings.MONGO_URI = "mongodb://localhost:27017"
             mock_settings.MONGO_DB = "test_db"
 
@@ -82,7 +84,7 @@ class TestModelCapabilitySave:
                 capability_level=4,
                 suitable_roles=["deep_analysis"],
                 features=["tool_calling", "reasoning", "long_context"],
-                recommended_depths=["深度", "全面"]
+                recommended_depths=["深度", "全面"],
             )
 
         assert result is True
@@ -97,8 +99,7 @@ class TestModelCapabilitySave:
         mock_client, mock_collection = _build_mock_mongo(None)
         mock_collection.find_one.return_value = None
 
-        with patch('pymongo.MongoClient', return_value=mock_client), \
-             patch('app.core.config.settings') as mock_settings:
+        with patch("pymongo.MongoClient", return_value=mock_client), patch("app.core.config.settings") as mock_settings:
             mock_settings.MONGO_URI = "mongodb://localhost:27017"
             mock_settings.MONGO_DB = "test_db"
 
@@ -107,7 +108,7 @@ class TestModelCapabilitySave:
                 capability_level=3,
                 suitable_roles=["both"],
                 features=["tool_calling"],
-                recommended_depths=["基础", "标准"]
+                recommended_depths=["基础", "标准"],
             )
 
         assert result is False
@@ -116,18 +117,19 @@ class TestModelCapabilitySave:
         """测试批量保存模型能力配置成功"""
         mock_doc = {
             "_id": "test_id",
-            "llm_configs": [{
-                "model_name": "qwen-turbo",
-                "capability_level": 1,
-                "suitable_roles": ["quick_analysis"],
-                "features": ["tool_calling"],
-                "recommended_depths": ["快速"]
-            }]
+            "llm_configs": [
+                {
+                    "model_name": "qwen-turbo",
+                    "capability_level": 1,
+                    "suitable_roles": ["quick_analysis"],
+                    "features": ["tool_calling"],
+                    "recommended_depths": ["快速"],
+                }
+            ],
         }
         mock_client, mock_collection = _build_mock_mongo(mock_doc)
 
-        with patch('pymongo.MongoClient', return_value=mock_client), \
-             patch('app.core.config.settings') as mock_settings:
+        with patch("pymongo.MongoClient", return_value=mock_client), patch("app.core.config.settings") as mock_settings:
             mock_settings.MONGO_URI = "mongodb://localhost:27017"
             mock_settings.MONGO_DB = "test_db"
 
@@ -137,15 +139,15 @@ class TestModelCapabilitySave:
                     "capability_level": 2,
                     "suitable_roles": ["both"],
                     "features": ["tool_calling", "long_context"],
-                    "recommended_depths": ["快速", "基础", "标准"]
+                    "recommended_depths": ["快速", "基础", "标准"],
                 },
                 {
                     "model_name": "new-model",
                     "capability_level": 4,
                     "suitable_roles": ["deep_analysis"],
                     "features": ["tool_calling", "reasoning"],
-                    "recommended_depths": ["深度", "全面"]
-                }
+                    "recommended_depths": ["深度", "全面"],
+                },
             ]
 
             result = self.service.save_model_capabilities_batch(capabilities)
@@ -159,8 +161,7 @@ class TestModelCapabilitySave:
         mock_doc = {"_id": "test_id", "llm_configs": []}
         mock_client, mock_collection = _build_mock_mongo(mock_doc)
 
-        with patch('pymongo.MongoClient', return_value=mock_client), \
-             patch('app.core.config.settings') as mock_settings:
+        with patch("pymongo.MongoClient", return_value=mock_client), patch("app.core.config.settings") as mock_settings:
             mock_settings.MONGO_URI = "mongodb://localhost:27017"
             mock_settings.MONGO_DB = "test_db"
 
@@ -170,14 +171,14 @@ class TestModelCapabilitySave:
                     "capability_level": 2,
                     "suitable_roles": ["both"],
                     "features": ["tool_calling"],
-                    "recommended_depths": ["快速", "基础"]
+                    "recommended_depths": ["快速", "基础"],
                 },
                 {
                     "capability_level": 4,
                     "suitable_roles": ["deep_analysis"],
                     "features": ["tool_calling", "reasoning"],
-                    "recommended_depths": ["深度", "全面"]
-                }
+                    "recommended_depths": ["深度", "全面"],
+                },
             ]
 
             result = self.service.save_model_capabilities_batch(capabilities)
@@ -191,8 +192,7 @@ class TestModelCapabilitySave:
         mock_client, mock_collection = _build_mock_mongo(None)
         mock_collection.find_one.return_value = None
 
-        with patch('pymongo.MongoClient', return_value=mock_client), \
-             patch('app.core.config.settings') as mock_settings:
+        with patch("pymongo.MongoClient", return_value=mock_client), patch("app.core.config.settings") as mock_settings:
             mock_settings.MONGO_URI = "mongodb://localhost:27017"
             mock_settings.MONGO_DB = "test_db"
 
@@ -202,7 +202,7 @@ class TestModelCapabilitySave:
                     "capability_level": 2,
                     "suitable_roles": ["both"],
                     "features": ["tool_calling"],
-                    "recommended_depths": ["快速", "基础"]
+                    "recommended_depths": ["快速", "基础"],
                 }
             ]
 

@@ -10,9 +10,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from app.models.user import User  # noqa: E402
 from app.routers import config as config_router  # noqa: E402
 from app.routers.auth import get_current_user  # noqa: E402
-from app.models.user import User  # noqa: E402
 from app.services.config_service import config_service  # noqa: E402
 
 
@@ -52,7 +52,7 @@ def test_add_llm_provider_sanitizes_api_key(monkeypatch, test_app: TestClient):
         "default_base_url": None,
         "api_key": "SHOULD_BE_STRIPPED",
         "api_secret": None,
-        "extra_config": {}
+        "extra_config": {},
     }
 
     resp = test_app.post("/api/config/llm/providers", json=payload)
@@ -85,7 +85,7 @@ def test_update_llm_provider_sanitizes_api_key(monkeypatch, test_app: TestClient
         "default_base_url": None,
         "api_key": "SHOULD_BE_STRIPPED",
         "api_secret": None,
-        "extra_config": {"k": "v"}
+        "extra_config": {"k": "v"},
     }
 
     resp = test_app.put("/api/config/llm/providers/abc123", json=payload)
@@ -95,4 +95,3 @@ def test_update_llm_provider_sanitizes_api_key(monkeypatch, test_app: TestClient
     assert captured.get("provider_id") == "abc123"
     # Ensure api_key in update_data was sanitized to empty string
     assert captured.get("api_key") == ""
-

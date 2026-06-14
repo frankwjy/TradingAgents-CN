@@ -8,7 +8,7 @@ def test_enhanced_screening_enriches_from_db(monkeypatch):
 
     # Fake DB layer
     class FakeCursor:
-        def __init__(self, docs: List[Dict[str, Any]]):
+        def __init__(self, docs: list[dict[str, Any]]):
             self._docs = docs
 
         async def to_list(self, length: int):
@@ -76,8 +76,8 @@ def test_enhanced_screening_enriches_from_db(monkeypatch):
 
 
 def test_quotes_ingestion_run_once_writes_bulk(monkeypatch):
-    from app.services.quotes_ingestion_service import QuotesIngestionService
     import app.services.quotes_ingestion_service as qis_mod
+    from app.services.quotes_ingestion_service import QuotesIngestionService
 
     # Fake DataSourceManager to avoid external calls
     class _FakeManager:
@@ -131,5 +131,5 @@ def test_quotes_ingestion_run_once_writes_bulk(monkeypatch):
         assert len(fake_db._coll.last_ops) == 2
 
     import asyncio
-    asyncio.run(_run())
 
+    asyncio.run(_run())

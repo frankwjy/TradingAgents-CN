@@ -1,12 +1,14 @@
 """ThreadSafeState / BoundedCache / make_thread_safe_getter 单元测试"""
+
 import threading
 import time
-from app.core.singleton import ThreadSafeState, BoundedCache, make_thread_safe_getter
 
+from app.core.singleton import BoundedCache, ThreadSafeState, make_thread_safe_getter
 
 # ---------------------------------------------------------------------------
 # ThreadSafeState
 # ---------------------------------------------------------------------------
+
 
 class TestThreadSafeState:
     def test_basic_read_write(self):
@@ -75,6 +77,7 @@ class TestThreadSafeState:
 # ---------------------------------------------------------------------------
 # BoundedCache
 # ---------------------------------------------------------------------------
+
 
 class TestBoundedCache:
     def test_basic_set_get(self):
@@ -158,6 +161,7 @@ class TestBoundedCache:
 # ---------------------------------------------------------------------------
 # make_thread_safe_getter
 # ---------------------------------------------------------------------------
+
 
 class TestMakeThreadSafeGetter:
     def test_single_creation(self):

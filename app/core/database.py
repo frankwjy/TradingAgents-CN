@@ -3,29 +3,31 @@
 增强版本，支持连接池、健康检查和错误恢复
 """
 
-import logging
 import asyncio
+import logging
 import threading
 from typing import Optional
+
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import MongoClient
 from pymongo.database import Database
-from redis.asyncio import Redis, ConnectionPool
-from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from redis.asyncio import ConnectionPool, Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
+
 from .config import settings
 
 logger = logging.getLogger(__name__)
 
 # 全局连接实例
-mongo_client: Optional[AsyncIOMotorClient] = None
-mongo_db: Optional[AsyncIOMotorDatabase] = None
-redis_client: Optional[Redis] = None
-redis_pool: Optional[ConnectionPool] = None
+mongo_client: AsyncIOMotorClient | None = None
+mongo_db: AsyncIOMotorDatabase | None = None
+redis_client: Redis | None = None
+redis_pool: ConnectionPool | None = None
 
 # 同步 MongoDB 连接（用于非异步上下文）
-_sync_mongo_client: Optional[MongoClient] = None
-_sync_mongo_db: Optional[Database] = None
+_sync_mongo_client: MongoClient | None = None
+_sync_mongo_db: Database | None = None
 _sync_mongo_lock = threading.Lock()
 
 
@@ -33,10 +35,10 @@ class DatabaseManager:
     """数据库连接管理器"""
 
     def __init__(self):
-        self.mongo_client: Optional[AsyncIOMotorClient] = None
-        self.mongo_db: Optional[AsyncIOMotorDatabase] = None
-        self.redis_client: Optional[Redis] = None
-        self.redis_pool: Optional[ConnectionPool] = None
+        self.mongo_client: AsyncIOMotorClient | None = None
+        self.mongo_db: AsyncIOMotorDatabase | None = None
+        self.redis_client: Redis | None = None
+        self.redis_pool: ConnectionPool | None = None
         self._mongo_healthy = False
         self._redis_healthy = False
 
@@ -60,13 +62,15 @@ class DatabaseManager:
             self.mongo_db = self.mongo_client[settings.MONGO_DB]
 
             # 测试连接
-            await self.mongo_client.admin.command('ping')
+            await self.mongo_client.admin.command("ping")
             self._mongo_healthy = True
 
             logger.info("✅ MongoDB连接成功建立")
             logger.info(f"📊 数据库: {settings.MONGO_DB}")
             logger.info(f"🔗 连接池: {settings.MONGO_MIN_CONNECTIONS}-{settings.MONGO_MAX_CONNECTIONS}")
-            logger.info(f"⏱️  超时配置: connectTimeout={settings.MONGO_CONNECT_TIMEOUT_MS}ms, socketTimeout={settings.MONGO_SOCKET_TIMEOUT_MS}ms")
+            logger.info(
+                f"⏱️  超时配置: connectTimeout={settings.MONGO_CONNECT_TIMEOUT_MS}ms, socketTimeout={settings.MONGO_SOCKET_TIMEOUT_MS}ms"
+            )
 
         except Exception as e:
             logger.error(f"❌ MongoDB连接失败: {e}")
@@ -137,43 +141,34 @@ class DatabaseManager:
         """数据库健康检查"""
         health_status = {
             "mongodb": {"status": "unknown", "details": None},
-            "redis": {"status": "unknown", "details": None}
+            "redis": {"status": "unknown", "details": None},
         }
 
         # 检查MongoDB
         try:
             if self.mongo_client:
-                result = await self.mongo_client.admin.command('ping')
+                result = await self.mongo_client.admin.command("ping")
                 health_status["mongodb"] = {
                     "status": "healthy",
-                    "details": {"ping": result, "database": settings.MONGO_DB}
+                    "details": {"ping": result, "database": settings.MONGO_DB},
                 }
                 self._mongo_healthy = True
             else:
                 health_status["mongodb"]["status"] = "disconnected"
         except Exception as e:
-            health_status["mongodb"] = {
-                "status": "unhealthy",
-                "details": {"error": str(e)}
-            }
+            health_status["mongodb"] = {"status": "unhealthy", "details": {"error": str(e)}}
             self._mongo_healthy = False
 
         # 检查Redis
         try:
             if self.redis_client:
                 result = await self.redis_client.ping()
-                health_status["redis"] = {
-                    "status": "healthy",
-                    "details": {"ping": result}
-                }
+                health_status["redis"] = {"status": "healthy", "details": {"ping": result}}
                 self._redis_healthy = True
             else:
                 health_status["redis"]["status"] = "disconnected"
         except Exception as e:
-            health_status["redis"] = {
-                "status": "unhealthy",
-                "details": {"error": str(e)}
-            }
+            health_status["redis"] = {"status": "unhealthy", "details": {"error": str(e)}}
             self._redis_healthy = False
 
         return health_status
@@ -243,21 +238,9 @@ async def create_stock_screening_view(db):
         # 创建视图：将 stock_basic_info、market_quotes 和 stock_financial_data 关联
         pipeline = [
             # 第一步：关联实时行情数据 (market_quotes)
-            {
-                "$lookup": {
-                    "from": "market_quotes",
-                    "localField": "code",
-                    "foreignField": "code",
-                    "as": "quote_data"
-                }
-            },
+            {"$lookup": {"from": "market_quotes", "localField": "code", "foreignField": "code", "as": "quote_data"}},
             # 第二步：展开 quote_data 数组
-            {
-                "$unwind": {
-                    "path": "$quote_data",
-                    "preserveNullAndEmptyArrays": True
-                }
-            },
+            {"$unwind": {"path": "$quote_data", "preserveNullAndEmptyArrays": True}},
             # 第三步：关联财务数据 (stock_financial_data)
             {
                 "$lookup": {
@@ -269,24 +252,19 @@ async def create_stock_screening_view(db):
                                 "$expr": {
                                     "$and": [
                                         {"$eq": ["$code", "$$stock_code"]},
-                                        {"$eq": ["$data_source", "$$stock_source"]}
+                                        {"$eq": ["$data_source", "$$stock_source"]},
                                     ]
                                 }
                             }
                         },
                         {"$sort": {"report_period": -1}},
-                        {"$limit": 1}
+                        {"$limit": 1},
                     ],
-                    "as": "financial_data"
+                    "as": "financial_data",
                 }
             },
             # 第四步：展开 financial_data 数组
-            {
-                "$unwind": {
-                    "path": "$financial_data",
-                    "preserveNullAndEmptyArrays": True
-                }
-            },
+            {"$unwind": {"path": "$financial_data", "preserveNullAndEmptyArrays": True}},
             # 第五步：重新组织字段结构
             {
                 "$project": {
@@ -328,17 +306,13 @@ async def create_stock_screening_view(db):
                     # 时间戳
                     "updated_at": 1,
                     "quote_updated_at": "$quote_data.updated_at",
-                    "financial_updated_at": "$financial_data.updated_at"
+                    "financial_updated_at": "$financial_data.updated_at",
                 }
-            }
+            },
         ]
 
         # 创建视图
-        await db.command({
-            "create": "stock_screening_view",
-            "viewOn": "stock_basic_info",
-            "pipeline": pipeline
-        })
+        await db.command({"create": "stock_screening_view", "viewOn": "stock_basic_info", "pipeline": pipeline})
 
         logger.info("✅ 视图 stock_screening_view 创建成功")
 
@@ -417,7 +391,7 @@ def get_mongo_db_sync() -> Database:
                 maxPoolSize=settings.MONGO_MAX_CONNECTIONS,
                 minPoolSize=settings.MONGO_MIN_CONNECTIONS,
                 maxIdleTimeMS=30000,
-                serverSelectionTimeoutMS=5000
+                serverSelectionTimeoutMS=5000,
             )
 
         _sync_mongo_db = _sync_mongo_client[settings.MONGO_DB]

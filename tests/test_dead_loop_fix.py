@@ -9,15 +9,17 @@ These tests verify the FIX is in place. They import modules only after
 dependencies are available; if the import chain is broken they are skipped.
 """
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add the project root to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 # ─── RISK 1: Google News pagination MAX_PAGES ────────────────────────────────
+
 
 class TestGoogleNewsMaxPages:
     """Verify getNewsData has a MAX_PAGES guard."""
@@ -42,11 +44,13 @@ class TestGoogleNewsMaxPages:
             pytest.skip("Dependencies not available")
 
         import inspect
+
         source = inspect.getsource(gn.getNewsData)
         assert "MAX_PAGES" in source, "getNewsData must use MAX_PAGES to bound the loop"
 
 
 # ─── RISK 2: make_request raises after exhausting retries ────────────────────
+
 
 class TestMakeRequestRaisesOnExhaustion:
     """Verify make_request is configured to raise (not silently return) on exhaustion."""
@@ -60,6 +64,7 @@ class TestMakeRequestRaisesOnExhaustion:
             pytest.skip("Dependencies not available")
 
         import inspect
+
         source = inspect.getsource(gn.make_request)
         # The @retry decorator should include reraise=True
         # We check the module source for the make_request function definition
@@ -70,7 +75,7 @@ class TestMakeRequestRaisesOnExhaustion:
             pytest.skip("Cannot find make_request in source")
 
         # Look at the decorator block (the ~200 chars before def make_request)
-        decorator_block = module_source[max(0, make_request_idx - 500):make_request_idx]
+        decorator_block = module_source[max(0, make_request_idx - 500) : make_request_idx]
         assert "reraise" in decorator_block, (
             "make_request's @retry decorator must include reraise=True to ensure "
             "exceptions are raised after retries are exhausted"
@@ -78,6 +83,7 @@ class TestMakeRequestRaisesOnExhaustion:
 
 
 # ─── RISK 3: Message count safety check in conditional_logic ─────────────────
+
 
 class TestMessageCountSafetyCheck:
     """Verify analyst loops exit when message count exceeds a safety threshold."""

@@ -1,5 +1,5 @@
 import pytest
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
 # Import the router and its dependency to override
@@ -40,4 +40,3 @@ def test_config_summary_contains_new_settings_fields(app_client: TestClient):
     assert "SSE_TASK_MAX_IDLE_SECONDS" in s
     assert "SSE_BATCH_POLL_INTERVAL_SECONDS" in s
     assert "SSE_BATCH_MAX_IDLE_SECONDS" in s
-

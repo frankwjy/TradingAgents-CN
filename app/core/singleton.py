@@ -2,6 +2,7 @@
 线程安全工具库
 提供线程安全的状态管理、缓存和单例模式
 """
+
 import copy
 import threading
 import time
@@ -16,8 +17,8 @@ class ThreadSafeState:
     所有读写操作加锁，支持原子 update() 和快照 snapshot()。
     """
 
-    def __init__(self, initial: Optional[Dict[str, Any]] = None):
-        self._data: Dict[str, Any] = dict(initial) if initial else {}
+    def __init__(self, initial: dict[str, Any] | None = None):
+        self._data: dict[str, Any] = dict(initial) if initial else {}
         self._lock = threading.Lock()
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -36,12 +37,12 @@ class ThreadSafeState:
         with self._lock:
             return key in self._data
 
-    def update(self, updates: Dict[str, Any]) -> None:
+    def update(self, updates: dict[str, Any]) -> None:
         """原子更新多个键值对"""
         with self._lock:
             self._data.update(updates)
 
-    def snapshot(self) -> Dict[str, Any]:
+    def snapshot(self) -> dict[str, Any]:
         """返回当前状态的深拷贝快照（嵌套对象互不影响）"""
         with self._lock:
             return copy.deepcopy(self._data)
@@ -64,9 +65,9 @@ class BoundedCache:
     def __init__(self, max_size: int = 5000, ttl: float = 3600.0):
         self._max_size = max_size
         self._ttl = ttl
-        self._data: Dict[str, Any] = {}
+        self._data: dict[str, Any] = {}
         _Sentinel = object
-        self._access: Dict[str, float] = {}
+        self._access: dict[str, float] = {}
         self._lock = threading.Lock()
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -147,7 +148,7 @@ class ThreadSafeSingleton(Generic[T]):
         self._cls = cls
         self._args = args
         self._kwargs = kwargs
-        self._instance: Optional[T] = None
+        self._instance: T | None = None
         self._lock = threading.Lock()
 
     def __get__(self, obj, objtype=None) -> T:
