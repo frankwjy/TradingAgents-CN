@@ -9,6 +9,8 @@ from typing import Dict, Any, List, Optional, Union
 import pandas as pd
 
 from ..base_provider import BaseStockDataProvider
+from .anti_crawl import AntiCrawlDetector, AntiCrawlStatus
+from .retry import retry_on_failure, async_retry_on_failure, RetryConfig, RETRY_CONFIGS
 
 logger = logging.getLogger(__name__)
 
@@ -288,6 +290,7 @@ class AKShareProvider(BaseStockDataProvider):
         logger.info("✅ AKShare连接测试成功（库已加载）")
         return True
     
+    @retry_on_failure(max_retries=3, base_delay=1.0, max_delay=10.0)
     def get_stock_list_sync(self) -> Optional[pd.DataFrame]:
         """获取股票列表（同步版本）"""
         if not self.connected:
@@ -296,6 +299,12 @@ class AKShareProvider(BaseStockDataProvider):
         try:
             logger.info("📋 获取AKShare股票列表（同步）...")
             stock_df = self.ak.stock_info_a_code_name()
+
+            # 检测反爬虫
+            detection = AntiCrawlDetector.detect(stock_df, source="akshare")
+            if detection.status == AntiCrawlStatus.BLOCKED:
+                logger.warning(f"⚠️ AKShare股票列表检测到反爬虫封锁: {detection.message}")
+                raise Exception(f"反爬虫封锁: {detection.message}")
 
             if stock_df is None or stock_df.empty:
                 logger.warning("⚠️ AKShare股票列表为空")
@@ -306,7 +315,7 @@ class AKShareProvider(BaseStockDataProvider):
 
         except Exception as e:
             logger.error(f"❌ AKShare获取股票列表失败: {e}")
-            return None
+            raise
 
     async def get_stock_list(self) -> List[Dict[str, Any]]:
         """
@@ -552,6 +561,7 @@ class AKShareProvider(BaseStockDataProvider):
                 "timezone": "Asia/Shanghai"
             }
     
+    @async_retry_on_failure(max_retries=2, base_delay=1.0, max_delay=10.0)
     async def get_batch_stock_quotes(self, codes: List[str]) -> Dict[str, Dict[str, Any]]:
         """
         批量获取股票实时行情（优化版：一次获取全市场快照）
@@ -567,137 +577,131 @@ class AKShareProvider(BaseStockDataProvider):
         if not self.connected:
             return {}
 
-        # 重试逻辑
-        max_retries = 2
-        retry_delay = 1  # 秒
+        try:
+            logger.debug(f"📊 批量获取 {len(codes)} 只股票的实时行情...")
 
-        for attempt in range(max_retries):
+            # 优先使用新浪财经接口（更稳定，不容易被封）
+            def fetch_spot_data_sina():
+                import time
+                time.sleep(0.3)  # 添加延迟避免频率限制
+                return self.ak.stock_zh_a_spot()
+
             try:
-                logger.debug(f"📊 批量获取 {len(codes)} 只股票的实时行情... (尝试 {attempt + 1}/{max_retries})")
-
-                # 优先使用新浪财经接口（更稳定，不容易被封）
-                def fetch_spot_data_sina():
-                    import time
-                    time.sleep(0.3)  # 添加延迟避免频率限制
-                    return self.ak.stock_zh_a_spot()
-
-                try:
-                    spot_df = await asyncio.to_thread(fetch_spot_data_sina)
-                    data_source = "sina"
-                    logger.debug("✅ 使用新浪财经接口获取数据")
-                except Exception as e:
-                    logger.warning(f"⚠️ 新浪财经接口失败: {e}，尝试东方财富接口...")
-                    # 回退到东方财富接口
-                    def fetch_spot_data_em():
-                        import time
-                        time.sleep(0.5)
-                        return self.ak.stock_zh_a_spot_em()
-                    spot_df = await asyncio.to_thread(fetch_spot_data_em)
-                    data_source = "eastmoney"
-                    logger.debug("✅ 使用东方财富接口获取数据")
-
-                if spot_df is None or spot_df.empty:
-                    logger.warning("⚠️ 全市场快照为空")
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(retry_delay)
-                        continue
-                    return {}
-
-                # 构建代码到行情的映射
-                quotes_map = {}
-                codes_set = set(codes)
-
-                # 构建代码映射表（支持带前缀的代码匹配）
-                # 例如：sh600000 -> 600000, sz000001 -> 000001
-                code_mapping = {}
-                for code in codes:
-                    code_mapping[code] = code  # 原始代码
-                    # 添加可能的前缀变体
-                    for prefix in ['sh', 'sz', 'bj']:
-                        code_mapping[f"{prefix}{code}"] = code
-
-                for _, row in spot_df.iterrows():
-                    raw_code = str(row.get("代码", ""))
-
-                    # 尝试匹配代码（支持带前缀和不带前缀）
-                    matched_code = None
-                    if raw_code in code_mapping:
-                        matched_code = code_mapping[raw_code]
-                    elif raw_code in codes_set:
-                        matched_code = raw_code
-
-                    if matched_code:
-                        quotes_data = {
-                            "name": str(row.get("名称", f"股票{matched_code}")),
-                            "price": self._safe_float(row.get("最新价", 0)),
-                            "change": self._safe_float(row.get("涨跌额", 0)),
-                            "change_percent": self._safe_float(row.get("涨跌幅", 0)),
-                            "volume": self._safe_int(row.get("成交量", 0)),
-                            "amount": self._safe_float(row.get("成交额", 0)),
-                            "open": self._safe_float(row.get("今开", 0)),
-                            "high": self._safe_float(row.get("最高", 0)),
-                            "low": self._safe_float(row.get("最低", 0)),
-                            "pre_close": self._safe_float(row.get("昨收", 0)),
-                            # 🔥 新增：财务指标字段
-                            "turnover_rate": self._safe_float(row.get("换手率", None)),  # 换手率（%）
-                            "volume_ratio": self._safe_float(row.get("量比", None)),  # 量比
-                            "pe": self._safe_float(row.get("市盈率-动态", None)),  # 动态市盈率
-                            "pb": self._safe_float(row.get("市净率", None)),  # 市净率
-                            "total_mv": self._safe_float(row.get("总市值", None)),  # 总市值（元）
-                            "circ_mv": self._safe_float(row.get("流通市值", None)),  # 流通市值（元）
-                        }
-
-                        # 转换为标准化字典（使用匹配后的代码）
-                        quotes_map[matched_code] = {
-                            "code": matched_code,
-                            "symbol": matched_code,
-                            "name": quotes_data.get("name", f"股票{matched_code}"),
-                            "price": float(quotes_data.get("price", 0)),
-                            "change": float(quotes_data.get("change", 0)),
-                            "change_percent": float(quotes_data.get("change_percent", 0)),
-                            "volume": int(quotes_data.get("volume", 0)),
-                            "amount": float(quotes_data.get("amount", 0)),
-                            "open_price": float(quotes_data.get("open", 0)),
-                            "high_price": float(quotes_data.get("high", 0)),
-                            "low_price": float(quotes_data.get("low", 0)),
-                            "pre_close": float(quotes_data.get("pre_close", 0)),
-                            # 🔥 新增：财务指标字段
-                            "turnover_rate": quotes_data.get("turnover_rate"),  # 换手率（%）
-                            "volume_ratio": quotes_data.get("volume_ratio"),  # 量比
-                            "pe": quotes_data.get("pe"),  # 动态市盈率
-                            "pe_ttm": quotes_data.get("pe"),  # TTM市盈率（与动态市盈率相同）
-                            "pb": quotes_data.get("pb"),  # 市净率
-                            "total_mv": quotes_data.get("total_mv") / 1e8 if quotes_data.get("total_mv") else None,  # 总市值（转换为亿元）
-                            "circ_mv": quotes_data.get("circ_mv") / 1e8 if quotes_data.get("circ_mv") else None,  # 流通市值（转换为亿元）
-                            # 扩展字段
-                            "full_symbol": self._get_full_symbol(matched_code),
-                            "market_info": self._get_market_info(matched_code),
-                            "data_source": "akshare",
-                            "last_sync": datetime.now(timezone.utc),
-                            "sync_status": "success"
-                        }
-
-                found_count = len(quotes_map)
-                missing_count = len(codes) - found_count
-                logger.debug(f"✅ 批量获取完成: 找到 {found_count} 只, 未找到 {missing_count} 只")
-
-                # 记录未找到的股票
-                if missing_count > 0:
-                    missing_codes = codes_set - set(quotes_map.keys())
-                    if missing_count <= 10:
-                        logger.debug(f"⚠️ 未找到行情的股票: {list(missing_codes)}")
-                    else:
-                        logger.debug(f"⚠️ 未找到行情的股票: {list(missing_codes)[:10]}... (共{missing_count}只)")
-
-                return quotes_map
-
+                spot_df = await asyncio.to_thread(fetch_spot_data_sina)
+                data_source = "sina"
+                logger.debug("✅ 使用新浪财经接口获取数据")
             except Exception as e:
-                logger.warning(f"⚠️ 批量获取实时行情失败 (尝试 {attempt + 1}/{max_retries}): {e}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(retry_delay)
+                logger.warning(f"⚠️ 新浪财经接口失败: {e}，尝试东方财富接口...")
+                # 回退到东方财富接口
+                def fetch_spot_data_em():
+                    import time
+                    time.sleep(0.5)
+                    return self.ak.stock_zh_a_spot_em()
+                spot_df = await asyncio.to_thread(fetch_spot_data_em)
+                data_source = "eastmoney"
+                logger.debug("✅ 使用东方财富接口获取数据")
+
+            # 检测反爬虫
+            detection = AntiCrawlDetector.detect(spot_df, source=data_source)
+            if detection.status == AntiCrawlStatus.BLOCKED:
+                logger.warning(f"⚠️ {data_source} 检测到反爬虫封锁: {detection.message}")
+                raise Exception(f"反爬虫封锁: {detection.message}")
+
+            if spot_df is None or spot_df.empty:
+                logger.warning("⚠️ 全市场快照为空")
+                return {}
+
+            # 构建代码到行情的映射
+            quotes_map = {}
+            codes_set = set(codes)
+
+            # 构建代码映射表（支持带前缀的代码匹配）
+            # 例如：sh600000 -> 600000, sz000001 -> 000001
+            code_mapping = {}
+            for code in codes:
+                code_mapping[code] = code  # 原始代码
+                # 添加可能的前缀变体
+                for prefix in ['sh', 'sz', 'bj']:
+                    code_mapping[f"{prefix}{code}"] = code
+
+            for _, row in spot_df.iterrows():
+                raw_code = str(row.get("代码", ""))
+
+                # 尝试匹配代码（支持带前缀和不带前缀）
+                matched_code = None
+                if raw_code in code_mapping:
+                    matched_code = code_mapping[raw_code]
+                elif raw_code in codes_set:
+                    matched_code = raw_code
+
+                if matched_code:
+                    quotes_data = {
+                        "name": str(row.get("名称", f"股票{matched_code}")),
+                        "price": self._safe_float(row.get("最新价", 0)),
+                        "change": self._safe_float(row.get("涨跌额", 0)),
+                        "change_percent": self._safe_float(row.get("涨跌幅", 0)),
+                        "volume": self._safe_int(row.get("成交量", 0)),
+                        "amount": self._safe_float(row.get("成交额", 0)),
+                        "open": self._safe_float(row.get("今开", 0)),
+                        "high": self._safe_float(row.get("最高", 0)),
+                        "low": self._safe_float(row.get("最低", 0)),
+                        "pre_close": self._safe_float(row.get("昨收", 0)),
+                        # 🔥 新增：财务指标字段
+                        "turnover_rate": self._safe_float(row.get("换手率", None)),  # 换手率（%）
+                        "volume_ratio": self._safe_float(row.get("量比", None)),  # 量比
+                        "pe": self._safe_float(row.get("市盈率-动态", None)),  # 动态市盈率
+                        "pb": self._safe_float(row.get("市净率", None)),  # 市净率
+                        "total_mv": self._safe_float(row.get("总市值", None)),  # 总市值（元）
+                        "circ_mv": self._safe_float(row.get("流通市值", None)),  # 流通市值（元）
+                    }
+
+                    # 转换为标准化字典（使用匹配后的代码）
+                    quotes_map[matched_code] = {
+                        "code": matched_code,
+                        "symbol": matched_code,
+                        "name": quotes_data.get("name", f"股票{matched_code}"),
+                        "price": float(quotes_data.get("price", 0)),
+                        "change": float(quotes_data.get("change", 0)),
+                        "change_percent": float(quotes_data.get("change_percent", 0)),
+                        "volume": int(quotes_data.get("volume", 0)),
+                        "amount": float(quotes_data.get("amount", 0)),
+                        "open_price": float(quotes_data.get("open", 0)),
+                        "high_price": float(quotes_data.get("high", 0)),
+                        "low_price": float(quotes_data.get("low", 0)),
+                        "pre_close": float(quotes_data.get("pre_close", 0)),
+                        # 🔥 新增：财务指标字段
+                        "turnover_rate": quotes_data.get("turnover_rate"),  # 换手率（%）
+                        "volume_ratio": quotes_data.get("volume_ratio"),  # 量比
+                        "pe": quotes_data.get("pe"),  # 动态市盈率
+                        "pe_ttm": quotes_data.get("pe"),  # TTM市盈率（与动态市盈率相同）
+                        "pb": quotes_data.get("pb"),  # 市净率
+                        "total_mv": quotes_data.get("total_mv") / 1e8 if quotes_data.get("total_mv") else None,  # 总市值（转换为亿元）
+                        "circ_mv": quotes_data.get("circ_mv") / 1e8 if quotes_data.get("circ_mv") else None,  # 流通市值（转换为亿元）
+                        # 扩展字段
+                        "full_symbol": self._get_full_symbol(matched_code),
+                        "market_info": self._get_market_info(matched_code),
+                        "data_source": "akshare",
+                        "last_sync": datetime.now(timezone.utc),
+                        "sync_status": "success"
+                    }
+
+            found_count = len(quotes_map)
+            missing_count = len(codes) - found_count
+            logger.debug(f"✅ 批量获取完成: 找到 {found_count} 只, 未找到 {missing_count} 只")
+
+            # 记录未找到的股票
+            if missing_count > 0:
+                missing_codes = codes_set - set(quotes_map.keys())
+                if missing_count <= 10:
+                    logger.debug(f"⚠️ 未找到行情的股票: {list(missing_codes)}")
                 else:
-                    logger.error(f"❌ 批量获取实时行情失败，已达最大重试次数: {e}")
-                    return {}
+                    logger.debug(f"⚠️ 未找到行情的股票: {list(missing_codes)[:10]}... (共{missing_count}只)")
+
+            return quotes_map
+
+        except Exception as e:
+            logger.warning(f"⚠️ 批量获取实时行情失败: {e}")
+            raise
 
     async def get_stock_quotes(self, code: str) -> Optional[Dict[str, Any]]:
         """
