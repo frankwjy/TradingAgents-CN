@@ -17,6 +17,9 @@ from tradingagents.utils.logging_init import setup_dataflow_logging
 # 导入原有缓存系统
 from .file_cache import StockDataCache
 
+# 导入 SingleFlight 防缓存击穿
+from .singleflight import SingleFlight
+
 # 导入自适应缓存系统
 try:
     from .adaptive import AdaptiveCacheSystem
@@ -32,7 +35,10 @@ class IntegratedCacheManager:
     
     def __init__(self, cache_dir: str = None):
         self.logger = setup_dataflow_logging()
-        
+
+        # SingleFlight 防止缓存击穿
+        self._singleflight = SingleFlight()
+
         # 初始化原有缓存系统（作为备用）
         self.legacy_cache = StockDataCache(cache_dir)
         
@@ -107,20 +113,21 @@ class IntegratedCacheManager:
     
     def load_stock_data(self, cache_key: str) -> Optional[Any]:
         """
-        从缓存加载股票数据
-        
+        从缓存加载股票数据（SingleFlight 防止并发重复加载）
+
         Args:
             cache_key: 缓存键
-            
+
         Returns:
             股票数据或None
         """
-        if self.use_adaptive:
-            # 使用自适应缓存系统
-            return self.adaptive_cache.load_data(cache_key)
-        else:
-            # 使用传统缓存系统
-            return self.legacy_cache.load_stock_data(cache_key)
+        def _do_load():
+            if self.use_adaptive:
+                return self.adaptive_cache.load_data(cache_key)
+            else:
+                return self.legacy_cache.load_stock_data(cache_key)
+
+        return self._singleflight.do(f"load:{cache_key}", _do_load)
     
     def find_cached_stock_data(self, symbol: str, start_date: str = None, 
                               end_date: str = None, data_source: str = "default") -> Optional[str]:
@@ -167,11 +174,14 @@ class IntegratedCacheManager:
             return self.legacy_cache.save_news_data(symbol, data, data_source)
     
     def load_news_data(self, cache_key: str) -> Optional[Any]:
-        """加载新闻数据"""
-        if self.use_adaptive:
-            return self.adaptive_cache.load_data(cache_key)
-        else:
-            return self.legacy_cache.load_news_data(cache_key)
+        """加载新闻数据（SingleFlight 防止并发重复加载）"""
+        def _do_load():
+            if self.use_adaptive:
+                return self.adaptive_cache.load_data(cache_key)
+            else:
+                return self.legacy_cache.load_news_data(cache_key)
+
+        return self._singleflight.do(f"load:{cache_key}", _do_load)
     
     def save_fundamentals_data(self, symbol: str, data: Any, data_source: str = "default") -> str:
         """保存基本面数据"""
@@ -186,11 +196,14 @@ class IntegratedCacheManager:
             return self.legacy_cache.save_fundamentals_data(symbol, data, data_source)
     
     def load_fundamentals_data(self, cache_key: str) -> Optional[Any]:
-        """加载基本面数据"""
-        if self.use_adaptive:
-            return self.adaptive_cache.load_data(cache_key)
-        else:
-            return self.legacy_cache.load_fundamentals_data(cache_key)
+        """加载基本面数据（SingleFlight 防止并发重复加载）"""
+        def _do_load():
+            if self.use_adaptive:
+                return self.adaptive_cache.load_data(cache_key)
+            else:
+                return self.legacy_cache.load_fundamentals_data(cache_key)
+
+        return self._singleflight.do(f"load:{cache_key}", _do_load)
 
     def find_cached_fundamentals_data(self, symbol: str, data_source: str = None,
                                      max_age_hours: int = None) -> Optional[str]:
@@ -282,17 +295,17 @@ class IntegratedCacheManager:
         """
         cleared_count = 0
 
-        # 1. 清理 Redis 缓存
+        # 1. 清理 Redis 缓存（仅清理缓存键，保留会话和进度数据）
         if self.use_adaptive and self.db_manager.is_redis_available():
             try:
                 redis_client = self.db_manager.get_redis_client()
-                if max_age_days == 0:
-                    # 清空所有缓存
-                    redis_client.flushdb()
-                    self.logger.info(f"🧹 Redis 缓存已全部清空")
-                else:
-                    # Redis 会自动过期，这里只记录日志
-                    self.logger.info(f"🧹 Redis 缓存会自动过期（TTL机制）")
+                cache_patterns = ["stock_data:*", "news_data:*", "fundamentals_data:*"]
+                redis_cleared = 0
+                for pattern in cache_patterns:
+                    for key in redis_client.scan_iter(match=pattern, count=100):
+                        redis_client.delete(key)
+                        redis_cleared += 1
+                self.logger.info(f"🧹 Redis 缓存已清理 {redis_cleared} 个键（保留会话和进度数据）")
             except Exception as e:
                 self.logger.error(f"⚠️ Redis 缓存清理失败: {e}")
 
