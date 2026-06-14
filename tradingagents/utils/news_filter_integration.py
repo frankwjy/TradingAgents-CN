@@ -148,25 +148,58 @@ def create_filtered_realtime_news_function():
             # 如果启用过滤且是A股，尝试重新获取并过滤
             if any(suffix in ticker for suffix in ['.SH', '.SZ', '.SS', '.XSHE', '.XSHG']) or \
                (not '.' in ticker and ticker.isdigit()):
-                
+
                 logger.info(f"[增强实时新闻] 检测到A股代码，尝试使用过滤版东方财富新闻")
-                
+
                 try:
-                    # 注意：akshare_utils 已废弃，使用 AKShareProvider 替代
-                    from tradingagents.dataflows.providers.china.akshare import get_akshare_provider
+                    from tradingagents.dataflows.providers.china.akshare import AKShareProvider
+                    from tradingagents.utils.enhanced_news_filter import create_enhanced_news_filter
+                    from tradingagents.utils.news_filter import get_company_name
 
                     # 清理股票代码
                     clean_ticker = ticker.replace('.SH', '').replace('.SZ', '').replace('.SS', '')\
                                     .replace('.XSHE', '').replace('.XSHG', '')
 
-                    # 使用 AKShareProvider 获取新闻（如果有相应方法）
-                    provider = get_akshare_provider()
-                    # TODO: 需要实现 get_stock_news 方法
-                    # original_news_df = provider.get_stock_news(clean_ticker)
-                    # 暂时跳过，返回原始报告
-                    logger.warning(f"[增强实时新闻] AKShare新闻功能暂未实现，返回原始报告")
-                    return original_report
-                        
+                    # 使用 AKShareProvider 获取新闻
+                    provider = AKShareProvider()
+                    news_df = provider.get_stock_news_sync(symbol=clean_ticker, limit=20)
+
+                    if news_df is not None and not news_df.empty:
+                        logger.info(f"[增强实时新闻] AKShare获取到 {len(news_df)} 条新闻，开始过滤")
+
+                        # 使用增强过滤器过滤新闻
+                        news_filter = create_enhanced_news_filter(
+                            clean_ticker,
+                            use_semantic=False,
+                            use_local_model=False,
+                        )
+                        filtered_df = news_filter.filter_news_enhanced(news_df, min_score=min_score)
+
+                        if not filtered_df.empty:
+                            # 构建过滤后的报告
+                            company_name = get_company_name(clean_ticker)
+                            report = f"# {company_name}({clean_ticker}) 过滤新闻报告\n\n"
+                            report += f"📅 查询时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                            report += f"📊 原始新闻: {len(news_df)} 条 → 过滤后: {len(filtered_df)} 条\n\n"
+
+                            for i, (_, row) in enumerate(filtered_df.iterrows(), 1):
+                                title = row.get('新闻标题', row.get('标题', '无标题'))
+                                content = row.get('新闻内容', row.get('内容', ''))
+                                score = row.get('final_score', 0)
+                                report += f"## {i}. {title} (相关性: {score:.1f})\n\n"
+                                if content:
+                                    report += f"{content[:500]}\n\n"
+                                report += "---\n\n"
+
+                            logger.info(f"[增强实时新闻] 过滤完成，返回 {len(filtered_df)} 条相关新闻")
+                            return report.strip()
+                        else:
+                            logger.info(f"[增强实时新闻] 过滤后无相关新闻，返回原始报告")
+                            return original_report
+                    else:
+                        logger.info(f"[增强实时新闻] AKShare未获取到新闻，返回原始报告")
+                        return original_report
+
                 except Exception as filter_error:
                     logger.error(f"[增强实时新闻] 新闻过滤失败: {filter_error}")
                     return original_report

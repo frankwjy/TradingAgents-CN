@@ -11,6 +11,13 @@ import re
 
 logger = logging.getLogger(__name__)
 
+# Import news filtering
+try:
+    from tradingagents.utils.news_filter import create_news_filter, get_company_name, NewsRelevanceFilter
+    _NEWS_FILTER_AVAILABLE = True
+except ImportError:
+    _NEWS_FILTER_AVAILABLE = False
+
 class UnifiedNewsAnalyzer:
     """统一新闻分析器，整合所有新闻获取逻辑"""
     
@@ -64,6 +71,49 @@ class UnifiedNewsAnalyzer:
         
         return result
     
+    def _apply_news_filter(self, stock_code: str, news_items: list) -> list:
+        """
+        Apply NewsRelevanceFilter to a list of news items.
+
+        Args:
+            stock_code: Stock code (e.g. "600036")
+            news_items: List of dicts with 'title' and 'content' keys
+
+        Returns:
+            list: Filtered news items sorted by relevance score (descending)
+        """
+        if not _NEWS_FILTER_AVAILABLE or not news_items:
+            return news_items
+
+        try:
+            clean_code = stock_code.replace('.SH', '').replace('.SZ', '').replace('.SS', '')\
+                           .replace('.XSHE', '').replace('.XSHG', '').replace('.HK', '')
+
+            news_filter = create_news_filter(clean_code)
+            scored_items = []
+
+            for item in news_items:
+                title = item.get('title', item.get('新闻标题', item.get('标题', '')))
+                content = item.get('content', item.get('新闻内容', item.get('内容', '')))
+                score = news_filter.calculate_relevance_score(title, content)
+                if score >= 30:
+                    item['relevance_score'] = score
+                    scored_items.append(item)
+
+            scored_items.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
+
+            if scored_items:
+                logger.info(f"[统一新闻工具] 新闻过滤: {len(news_items)}条 → {len(scored_items)}条")
+            else:
+                logger.info(f"[统一新闻工具] 过滤后无相关新闻，保留原始新闻")
+                return news_items
+
+            return scored_items
+
+        except Exception as e:
+            logger.warning(f"[统一新闻工具] 新闻过滤失败: {e}，返回原始新闻")
+            return news_items
+
     def _identify_stock_type(self, stock_code: str) -> str:
         """识别股票类型"""
         stock_code = stock_code.upper().strip()
@@ -144,6 +194,9 @@ class UnifiedNewsAnalyzer:
             if not news_items:
                 logger.info(f"[统一新闻工具] 数据库中没有找到 {stock_code} 的新闻")
                 return ""
+
+            # Apply relevance filtering to reduce noise
+            news_items = self._apply_news_filter(stock_code, news_items)
 
             # 格式化新闻
             report = f"# {stock_code} 最新新闻 (数据库缓存)\n\n"
