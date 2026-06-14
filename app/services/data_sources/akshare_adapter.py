@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from .base import DataSourceAdapter
+from tradingagents.dataflows.providers.china.anti_crawl import AntiCrawlDetector, AntiCrawlStatus
+from tradingagents.dataflows.providers.china.retry import retry_on_failure, RetryConfig, RETRY_CONFIGS
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,7 @@ class AKShareAdapter(DataSourceAdapter):
         except ImportError:
             return False
 
+    @retry_on_failure(max_retries=3, base_delay=1.0, max_delay=10.0)
     def get_stock_list(self) -> Optional[pd.DataFrame]:
         """获取股票列表（使用 AKShare 的 stock_info_a_code_name 接口获取真实股票名称）"""
         if not self.is_available():
@@ -42,6 +45,12 @@ class AKShareAdapter(DataSourceAdapter):
 
             # 使用 AKShare 的 stock_info_a_code_name 接口获取股票代码和名称
             df = ak.stock_info_a_code_name()
+
+            # 检测反爬虫
+            detection = AntiCrawlDetector.detect(df, source="akshare")
+            if detection.status == AntiCrawlStatus.BLOCKED:
+                logger.warning(f"AKShare: 检测到反爬虫封锁: {detection.message}")
+                raise Exception(f"反爬虫封锁: {detection.message}")
 
             if df is None or df.empty:
                 logger.warning("AKShare: stock_info_a_code_name() returned empty data")
@@ -192,6 +201,7 @@ class AKShareAdapter(DataSourceAdapter):
             return None
 
 
+    @retry_on_failure(max_retries=2, base_delay=0.5, max_delay=5.0)
     def get_realtime_quotes(self, source: str = "eastmoney"):
         """
         获取全市场实时快照，返回以6位代码为键的字典
@@ -215,6 +225,12 @@ class AKShareAdapter(DataSourceAdapter):
             else:  # 默认使用东方财富
                 df = ak.stock_zh_a_spot_em()  # 东方财富接口
                 logger.info("使用 AKShare 东方财富接口获取实时行情")
+
+            # 检测反爬虫
+            detection = AntiCrawlDetector.detect(df, source=source)
+            if detection.status == AntiCrawlStatus.BLOCKED:
+                logger.warning(f"AKShare {source} 检测到反爬虫封锁: {detection.message}")
+                raise Exception(f"反爬虫封锁: {detection.message}")
 
             if df is None or getattr(df, "empty", True):
                 logger.warning(f"AKShare {source} 返回空数据")
