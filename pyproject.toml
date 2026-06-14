@@ -92,6 +92,7 @@ qianfan = ["qianfan>=0.4.20"]
 dev = [
     "ruff>=0.4.0",
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
     "pytest-asyncio>=0.23.0",
 ]
 
@@ -160,3 +161,14 @@ known-first-party = ["tradingagents", "app"]
 "cli/**" = ["ALL"]
 "examples/**" = ["ALL"]
 "tests/**" = ["W291", "W293"]
+
+[tool.coverage.run]
+source = ["tradingagents"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
+
+[tool.coverage.html]
+directory = "htmlcov"
