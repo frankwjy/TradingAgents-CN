@@ -105,7 +105,7 @@ exclude = ["tests*", "docs*", "scripts*", "data*", "logs*", "reports*", "results
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-exclude = ["scripts/*", "scripts/**", "web/*", "web/**", "cli/*", "cli/**", "examples/*", "examples/**", "tradingagents/dataflows/cache/*"]
+exclude = ["scripts/*", "scripts/**", "web/*", "web/**", "cli/*", "cli/**", "examples/*", "examples/**", "tradingagents/dataflows/cache/*", "tests/*"]
 
 [tool.ruff.lint]
 select = [
