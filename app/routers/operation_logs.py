@@ -19,7 +19,7 @@ from app.routers.auth_db import get_current_user
 from app.services.operation_log_service import get_operation_log_service
 
 router = APIRouter(prefix="/logs", tags=["操作日志"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/list", response_model=OperationLogListResponse)

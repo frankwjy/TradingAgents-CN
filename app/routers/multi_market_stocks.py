@@ -19,7 +19,7 @@ from app.core.response import ok
 from app.routers.auth_db import get_current_user
 from app.services.unified_stock_service import UnifiedStockService
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/markets", tags=["multi-market"])
 

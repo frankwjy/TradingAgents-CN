@@ -14,7 +14,7 @@ from app.routers.auth_db import get_current_user
 from app.services.database_service import DatabaseService
 
 router = APIRouter(prefix="/database", tags=["数据库管理"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 # 请求模型

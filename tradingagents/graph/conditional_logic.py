@@ -8,6 +8,10 @@ from tradingagents.utils.logging_init import get_logger
 logger = get_logger("default")
 
 
+# 死循环防护: 消息数量安全阈值，超过此数量强制退出分析师循环
+MAX_MESSAGES = 100
+
+
 class ConditionalLogic:
     """Handles conditional logic for determining graph flow."""
 
@@ -27,7 +31,7 @@ class ConditionalLogic:
 
         # 死循环修复: 添加工具调用次数检查
         tool_call_count = state.get("market_tool_call_count", 0)
-        max_tool_calls = 3
+        max_tool_calls = 300
 
         # 检查是否已经有市场分析报告
         market_report = state.get("market_report", "")
@@ -49,6 +53,11 @@ class ConditionalLogic:
         # 死循环修复: 如果达到最大工具调用次数，强制结束
         if tool_call_count >= max_tool_calls:
             logger.warning("🔧 [死循环修复] 达到最大工具调用次数，强制结束: Msg Clear Market")
+            return "Msg Clear Market"
+
+        # 死循环修复: 消息数量安全检查
+        if len(messages) > MAX_MESSAGES:
+            logger.warning(f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear Market")
             return "Msg Clear Market"
 
         # 如果已经有报告内容，说明分析已完成，不再循环
@@ -75,7 +84,7 @@ class ConditionalLogic:
 
         # 死循环修复: 添加工具调用次数检查
         tool_call_count = state.get("sentiment_tool_call_count", 0)
-        max_tool_calls = 3
+        max_tool_calls = 300
 
         # 检查是否已经有情绪分析报告
         sentiment_report = state.get("sentiment_report", "")
@@ -88,6 +97,11 @@ class ConditionalLogic:
         # 死循环修复: 如果达到最大工具调用次数，强制结束
         if tool_call_count >= max_tool_calls:
             logger.warning("🔧 [死循环修复] 达到最大工具调用次数，强制结束: Msg Clear Social")
+            return "Msg Clear Social"
+
+        # 死循环修复: 消息数量安全检查
+        if len(messages) > MAX_MESSAGES:
+            logger.warning(f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear Social")
             return "Msg Clear Social"
 
         # 如果已经有报告内容，说明分析已完成，不再循环
@@ -114,7 +128,7 @@ class ConditionalLogic:
 
         # 死循环修复: 添加工具调用次数检查
         tool_call_count = state.get("news_tool_call_count", 0)
-        max_tool_calls = 3
+        max_tool_calls = 300
 
         # 检查是否已经有新闻分析报告
         news_report = state.get("news_report", "")
@@ -127,6 +141,11 @@ class ConditionalLogic:
         # 死循环修复: 如果达到最大工具调用次数，强制结束
         if tool_call_count >= max_tool_calls:
             logger.warning("🔧 [死循环修复] 达到最大工具调用次数，强制结束: Msg Clear News")
+            return "Msg Clear News"
+
+        # 死循环修复: 消息数量安全检查
+        if len(messages) > MAX_MESSAGES:
+            logger.warning(f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear News")
             return "Msg Clear News"
 
         # 如果已经有报告内容，说明分析已完成，不再循环
@@ -153,7 +172,7 @@ class ConditionalLogic:
 
         # 死循环修复: 添加工具调用次数检查
         tool_call_count = state.get("fundamentals_tool_call_count", 0)
-        max_tool_calls = 1  # 一次工具调用就能获取所有数据
+        max_tool_calls = 300
 
         # 检查是否已经有基本面报告
         fundamentals_report = state.get("fundamentals_report", "")
@@ -195,6 +214,11 @@ class ConditionalLogic:
         # ✅ 优先级1: 如果已经有报告内容，说明分析已完成，不再循环
         if fundamentals_report and len(fundamentals_report) > 100:
             logger.info("🔀 [条件判断] ✅ 报告已完成，返回: Msg Clear Fundamentals")
+            return "Msg Clear Fundamentals"
+
+        # 死循环修复: 消息数量安全检查
+        if len(messages) > MAX_MESSAGES:
+            logger.warning(f"🔧 [死循环修复] 消息数量({len(messages)})超过安全阈值({MAX_MESSAGES})，强制结束: Msg Clear Fundamentals")
             return "Msg Clear Fundamentals"
 
         # ✅ 优先级2: 如果有tool_calls，去执行工具

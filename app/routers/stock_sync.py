@@ -17,7 +17,7 @@ from app.worker.akshare_sync_service import get_akshare_sync_service
 from app.worker.financial_data_sync_service import get_financial_sync_service
 from app.worker.tushare_sync_service import get_tushare_sync_service
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/stock-sync", tags=["股票数据同步"])
 

@@ -23,7 +23,7 @@ from app.services.simple_analysis_service import get_simple_analysis_service
 from app.services.websocket_manager import get_websocket_manager
 
 router = APIRouter()
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 # 兼容性：保留原有的请求模型

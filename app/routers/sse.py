@@ -12,7 +12,7 @@ from app.routers.auth_db import get_current_user
 from app.services.queue_service import QueueService, get_queue_service
 
 router = APIRouter()
-logger = logging.getLogger("webapi.sse")
+logger = logging.getLogger(__name__)
 
 
 async def task_progress_generator(task_id: str, user_id: str):

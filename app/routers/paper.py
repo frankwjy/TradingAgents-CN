@@ -11,7 +11,7 @@ from app.core.response import ok
 from app.routers.auth_db import get_current_user
 
 router = APIRouter(prefix="/paper", tags=["paper"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 # 每个市场的初始资金配置

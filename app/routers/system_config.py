@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.routers.auth_db import get_current_user
 
 router = APIRouter()
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 SENSITIVE_KEYS = {
     "MONGODB_PASSWORD",

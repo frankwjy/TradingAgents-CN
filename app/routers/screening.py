@@ -12,7 +12,7 @@ from app.services.enhanced_screening_service import get_enhanced_screening_servi
 from app.services.screening_service import ScreeningService
 
 router = APIRouter(tags=["screening"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 # 筛选字段配置响应模型

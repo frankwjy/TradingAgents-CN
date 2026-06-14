@@ -15,7 +15,7 @@ from app.services.news_data_service import NewsQueryParams, get_news_data_servic
 from app.worker.news_data_sync_service import get_news_data_sync_service
 
 router = APIRouter(prefix="/api/news-data", tags=["新闻数据"])
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 class NewsQueryRequest(BaseModel):

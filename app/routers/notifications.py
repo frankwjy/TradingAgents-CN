@@ -12,7 +12,7 @@ from app.routers.auth_db import get_current_user
 from app.services.notifications_service import get_notifications_service
 
 router = APIRouter()
-logger = logging.getLogger("webapi.notifications")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/notifications")

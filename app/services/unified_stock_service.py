@@ -18,7 +18,7 @@ import logging
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 class UnifiedStockService:
