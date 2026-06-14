@@ -164,7 +164,7 @@ class FavoritesService:
     ) -> bool:
         """添加股票到自选股（兼容字符串ID与ObjectId）"""
         import logging
-        logger = logging.getLogger("webapi")
+        logger = logging.getLogger(__name__)
 
         try:
             logger.info(f"🔧 [add_favorite] 开始添加自选股: user_id={user_id}, stock_code={stock_code}")
@@ -315,7 +315,7 @@ class FavoritesService:
     async def is_favorite(self, user_id: str, stock_code: str) -> bool:
         """检查股票是否在自选股中（兼容字符串ID与ObjectId）"""
         import logging
-        logger = logging.getLogger("webapi")
+        logger = logging.getLogger(__name__)
 
         try:
             logger.info(f"🔧 [is_favorite] 检查自选股: user_id={user_id}, stock_code={stock_code}")

@@ -24,6 +24,20 @@ except ImportError:
     HKStockProvider = None
     HK_STOCK_AVAILABLE = False
 
+# 导入港股新闻工具
+try:
+    from .hk_news import (
+        HKNewsProvider,
+        get_hk_news_provider,
+        get_hk_stock_news_sync,
+    )
+    HK_NEWS_AVAILABLE = True
+except ImportError:
+    HKNewsProvider = None
+    get_hk_news_provider = None
+    get_hk_stock_news_sync = None
+    HK_NEWS_AVAILABLE = False
+
 __all__ = [
     'ImprovedHKStockProvider',
     'get_improved_hk_provider',
@@ -31,5 +45,9 @@ __all__ = [
     'HK_PROVIDER_AVAILABLE',
     'HKStockProvider',
     'HK_STOCK_AVAILABLE',
+    'HKNewsProvider',
+    'get_hk_news_provider',
+    'get_hk_stock_news_sync',
+    'HK_NEWS_AVAILABLE',
 ]
 

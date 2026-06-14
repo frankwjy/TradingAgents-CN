@@ -17,7 +17,7 @@ import logging
 import asyncio
 from datetime import datetime, timedelta
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/stock-sync", tags=["股票数据同步"])
 

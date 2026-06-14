@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.services.operation_log_service import log_operation
 from app.models.operation_log import ActionType
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 # 全局开关：是否启用操作日志记录（可由系统设置动态控制）
 OPLOG_ENABLED: bool = True

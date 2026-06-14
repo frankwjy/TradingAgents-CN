@@ -7,6 +7,7 @@
 import os
 import json
 import pickle
+import tempfile
 import pandas as pd
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -96,6 +97,39 @@ class StockDataCache:
         logger.info(f"🗄️ 数据库缓存管理器初始化完成")
         logger.info(f"   美股数据: ✅ 已配置")
         logger.info(f"   A股数据: ✅ 已配置")
+
+    def _atomic_write(self, path: Path, content: str, encoding: str = 'utf-8'):
+        """原子写入文本文件：先写临时文件再重命名，防止并发读取到半写内容"""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix='.tmp')
+        try:
+            with os.fdopen(fd, 'w', encoding=encoding) as f:
+                f.write(content)
+            os.replace(tmp_path, str(path))
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
+    def _atomic_write_bytes(self, path: Path, data):
+        """原子写入二进制文件（如 CSV DataFrame）"""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix='.tmp')
+        try:
+            with os.fdopen(fd, 'wb') as f:
+                if hasattr(data, 'to_csv'):
+                    data.to_csv(f, index=True)
+                else:
+                    f.write(data if isinstance(data, bytes) else str(data).encode())
+            os.replace(tmp_path, str(path))
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     def _determine_market_type(self, symbol: str) -> str:
         """根据股票代码确定市场类型"""
@@ -209,13 +243,10 @@ class StockDataCache:
         return self.metadata_dir / f"{cache_key}_meta.json"
     
     def _save_metadata(self, cache_key: str, metadata: Dict[str, Any]):
-        """保存元数据"""
+        """保存元数据（原子写入）"""
         metadata_path = self._get_metadata_path(cache_key)
-        metadata_path.parent.mkdir(parents=True, exist_ok=True)  # 确保目录存在
         metadata['cached_at'] = datetime.now().isoformat()
-        
-        with open(metadata_path, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=2)
+        self._atomic_write(metadata_path, json.dumps(metadata, ensure_ascii=False, indent=2))
     
     def _load_metadata(self, cache_key: str) -> Optional[Dict[str, Any]]:
         """加载元数据"""
@@ -300,16 +331,13 @@ class StockDataCache:
                                            source=data_source,
                                            market=market_type)
 
-        # 保存数据
+        # 保存数据（原子写入）
         if isinstance(data, pd.DataFrame):
             cache_path = self._get_cache_path("stock_data", cache_key, "csv", symbol)
-            cache_path.parent.mkdir(parents=True, exist_ok=True)  # 确保目录存在
-            data.to_csv(cache_path, index=True)
+            self._atomic_write_bytes(cache_path, data)
         else:
             cache_path = self._get_cache_path("stock_data", cache_key, "txt", symbol)
-            cache_path.parent.mkdir(parents=True, exist_ok=True)  # 确保目录存在
-            with open(cache_path, 'w', encoding='utf-8') as f:
-                f.write(str(data))
+            self._atomic_write(cache_path, str(data))
 
         # 保存元数据
         metadata = {
@@ -431,9 +459,7 @@ class StockDataCache:
                                            source=data_source)
         
         cache_path = self._get_cache_path("news", cache_key, "txt")
-        cache_path.parent.mkdir(parents=True, exist_ok=True)  # 确保目录存在
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            f.write(news_data)
+        self._atomic_write(cache_path, news_data)
         
         metadata = {
             'symbol': symbol,
@@ -472,9 +498,7 @@ class StockDataCache:
                                            date=datetime.now().strftime("%Y-%m-%d"))
         
         cache_path = self._get_cache_path("fundamentals", cache_key, "txt", symbol)
-        cache_path.parent.mkdir(parents=True, exist_ok=True)  # 确保目录存在
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            f.write(fundamentals_data)
+        self._atomic_write(cache_path, fundamentals_data)
         
         metadata = {
             'symbol': symbol,

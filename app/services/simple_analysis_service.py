@@ -795,9 +795,10 @@ class SimpleAnalysisService:
             logger.info(f"🎯🎯🎯 [ENTRY] execute_analysis_background 方法被调用: {task_id}")
             logger.info(f"🎯🎯🎯 [ENTRY] user_id={user_id}, stock_code={stock_code}")
         except Exception as entry_error:
-            print(f"❌❌❌ [CRITICAL] 日志记录失败: {entry_error}")
+            import sys
             import traceback
-            traceback.print_exc()
+            sys.stderr.write(f"[CRITICAL] logging failed: {entry_error}\n")
+            traceback.print_exc(file=sys.stderr)
 
         progress_tracker = None
         try:

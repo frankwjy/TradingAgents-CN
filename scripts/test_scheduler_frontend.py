@@ -28,7 +28,7 @@ def login() -> str:
         data = response.json()
         if data.get("success"):
             token = data["data"]["access_token"]
-            print(f"✅ 登录成功，Token: {token[:20]}...")
+            print(f"✅ 登录成功（出于安全考虑不显示token）")
             return token
         else:
             print(f"❌ 登录失败: {data.get('message')}")

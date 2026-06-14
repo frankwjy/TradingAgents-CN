@@ -12,7 +12,7 @@ from app.models.user import User, FavoriteStock
 from app.services.favorites_service import favorites_service
 from app.core.response import ok
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/favorites", tags=["自选股管理"])
 
@@ -74,7 +74,7 @@ async def add_favorite(
 ):
     """添加股票到自选股"""
     import logging
-    logger = logging.getLogger("webapi")
+    logger = logging.getLogger(__name__)
 
     try:
         logger.info(f"📝 添加自选股请求: user_id={current_user['id']}, stock_code={request.stock_code}, stock_name={request.stock_name}")

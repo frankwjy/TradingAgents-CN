@@ -18,7 +18,7 @@ from app.models.operation_log import (
 )
 from app.utils.timezone import now_tz
 
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 
 class OperationLogService:

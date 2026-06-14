@@ -1,0 +1,170 @@
+{
+  "timestamp": "2026-06-13T15:36:51.017208",
+  "total_duration_seconds": 96.59,
+  "exit_code": 0,
+  "summary": {
+    "total_tests": 6,
+    "passed": 6,
+    "failed": 0,
+    "pass_rate": 100.0
+  },
+  "categories": {
+    "data": {
+      "tests": [
+        {
+          "name": "data_source_akshare_availability",
+          "elapsed": 0.1692,
+          "details": {
+            "available": true
+          }
+        },
+        {
+          "name": "data_source_akshare_stock_list",
+          "elapsed": 11.7839,
+          "details": {
+            "success": true,
+            "record_count": 5527
+          }
+        },
+        {
+          "name": "data_source_baostock_availability",
+          "elapsed": 0.0055,
+          "details": {
+            "available": true
+          }
+        },
+        {
+          "name": "data_source_baostock_stock_list",
+          "elapsed": 27.6319,
+          "details": {
+            "success": true,
+            "record_count": 5533
+          }
+        },
+        {
+          "name": "data_source_comparison",
+          "elapsed": 34.8526,
+          "details": {
+            "sources": {
+              "akshare": {
+                "available": true,
+                "success": true,
+                "elapsed": 0.0035
+              },
+              "baostock": {
+                "available": true,
+                "success": true,
+                "elapsed": 34.8491
+              }
+            }
+          }
+        },
+        {
+          "name": "data_source_error_handling",
+          "elapsed": 20.8983,
+          "details": {
+            "sources": {
+              "akshare": {
+                "error_handling_time": 2.5594,
+                "handled": true
+              },
+              "baostock": {
+                "error_handling_time": 18.3389,
+                "handled": true
+              }
+            }
+          }
+        }
+      ],
+      "total_time": 95.3414
+    }
+  },
+  "slowest_tests": [
+    {
+      "name": "data_source_comparison",
+      "elapsed": 34.8526
+    },
+    {
+      "name": "data_source_baostock_stock_list",
+      "elapsed": 27.6319
+    },
+    {
+      "name": "data_source_error_handling",
+      "elapsed": 20.8983
+    },
+    {
+      "name": "data_source_akshare_stock_list",
+      "elapsed": 11.7839
+    },
+    {
+      "name": "data_source_akshare_availability",
+      "elapsed": 0.1692
+    }
+  ],
+  "raw_results": {
+    "data_source_akshare_availability": {
+      "elapsed_seconds": 0.1692,
+      "details": {
+        "available": true
+      },
+      "passed": true
+    },
+    "data_source_akshare_stock_list": {
+      "elapsed_seconds": 11.7839,
+      "details": {
+        "success": true,
+        "record_count": 5527
+      },
+      "passed": true
+    },
+    "data_source_baostock_availability": {
+      "elapsed_seconds": 0.0055,
+      "details": {
+        "available": true
+      },
+      "passed": true
+    },
+    "data_source_baostock_stock_list": {
+      "elapsed_seconds": 27.6319,
+      "details": {
+        "success": true,
+        "record_count": 5533
+      },
+      "passed": true
+    },
+    "data_source_comparison": {
+      "elapsed_seconds": 34.8526,
+      "details": {
+        "sources": {
+          "akshare": {
+            "available": true,
+            "success": true,
+            "elapsed": 0.0035
+          },
+          "baostock": {
+            "available": true,
+            "success": true,
+            "elapsed": 34.8491
+          }
+        }
+      },
+      "passed": true
+    },
+    "data_source_error_handling": {
+      "elapsed_seconds": 20.8983,
+      "details": {
+        "sources": {
+          "akshare": {
+            "error_handling_time": 2.5594,
+            "handled": true
+          },
+          "baostock": {
+            "error_handling_time": 18.3389,
+            "handled": true
+          }
+        }
+      },
+      "passed": true
+    }
+  }
+}

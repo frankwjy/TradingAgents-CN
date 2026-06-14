@@ -37,6 +37,7 @@ from components.analysis_form import render_analysis_form
 from components.results_display import render_results
 from components.login import render_login_form, check_authentication, render_user_info, render_sidebar_user_info, render_sidebar_logout, require_permission
 from components.user_activity_dashboard import render_user_activity_dashboard, render_activity_summary_widget
+from components.deprecation_notice import render_deprecation_notice, render_migration_guide
 from utils.api_checker import check_api_keys
 from utils.analysis_runner import run_stock_analysis, validate_analysis_params, format_analysis_results
 from utils.progress_tracker import SmartStreamlitProgressDisplay, create_smart_progress_callback
@@ -890,6 +891,9 @@ def main():
     # 渲染页面头部
     render_header()
 
+    # 显示弃用通知横幅
+    render_deprecation_notice()
+
     # 侧边栏布局 - 标题在最顶部
     st.sidebar.title("🤖 TradingAgents-CN")
     st.sidebar.markdown("---")
@@ -921,6 +925,9 @@ def main():
         )
     except Exception as e:
         logger.warning(f"记录页面访问活动失败: {e}")
+
+    # 在侧边栏显示迁移指南
+    render_migration_guide()
 
     # 在功能选择和AI模型配置之间添加分隔线
     st.sidebar.markdown("---")

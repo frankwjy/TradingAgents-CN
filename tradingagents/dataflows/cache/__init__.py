@@ -54,6 +54,15 @@ except ImportError:
     IntegratedCacheManager = None
     INTEGRATED_CACHE_AVAILABLE = False
 
+# 导入 SingleFlight
+try:
+    from .singleflight import SingleFlight, AsyncSingleFlight
+    SINGLEFLIGHT_AVAILABLE = True
+except ImportError:
+    SingleFlight = None
+    AsyncSingleFlight = None
+    SINGLEFLIGHT_AVAILABLE = False
+
 # 导入应用缓存适配器（函数，非类）
 try:
     from .app_adapter import get_basics_from_cache, get_market_quote_dataframe
@@ -123,11 +132,16 @@ __all__ = [
     'DatabaseCacheManager',
     'AdaptiveCacheSystem',
 
+    # SingleFlight 防缓存击穿
+    'SingleFlight',
+    'AsyncSingleFlight',
+
     # 可用性标志
     'FILE_CACHE_AVAILABLE',
     'DB_CACHE_AVAILABLE',
     'ADAPTIVE_CACHE_AVAILABLE',
     'INTEGRATED_CACHE_AVAILABLE',
+    'SINGLEFLIGHT_AVAILABLE',
 
     # 应用缓存适配器
     'get_basics_from_cache',

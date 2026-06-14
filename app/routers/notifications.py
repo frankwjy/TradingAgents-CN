@@ -11,7 +11,7 @@ from app.core.database import get_redis_client
 from app.services.notifications_service import get_notifications_service
 
 router = APIRouter()
-logger = logging.getLogger("webapi.notifications")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/notifications")

@@ -641,16 +641,22 @@ async def log_requests(request: Request, call_next):
         response = await call_next(request)
         return response
 
-    # 使用webapi logger记录请求
-    logger = logging.getLogger("webapi")
-    logger.info(f"🔄 {request.method} {request.url.path} - 开始处理")
+    logger = logging.getLogger("app.request")
 
     response = await call_next(request)
     process_time = time.time() - start_time
 
-    # 记录请求完成
-    status_emoji = "✅" if response.status_code < 400 else "❌"
-    logger.info(f"{status_emoji} {request.method} {request.url.path} - 状态: {response.status_code} - 耗时: {process_time:.3f}s")
+    level = logging.WARNING if response.status_code >= 400 else logging.INFO
+    logger.log(
+        level,
+        "http_request",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_s": round(process_time, 3),
+        },
+    )
 
     return response
 
@@ -662,7 +668,12 @@ app.add_middleware(RequestIDMiddleware)
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    logger = logging.getLogger("app.error")
+    logger.error(
+        "unhandled_exception",
+        extra={"path": request.url.path, "method": request.method},
+        exc_info=exc,
+    )
     return JSONResponse(
         status_code=500,
         content={
@@ -679,7 +690,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/api/test-log")
 async def test_log():
     """测试日志中间件是否工作"""
-    print("🧪 测试端点被调用 - 这条消息应该出现在控制台")
+    logging.getLogger("app.test").info("test_endpoint_called")
     return {"message": "测试成功", "timestamp": time.time()}
 
 # 注册路由
@@ -733,7 +744,6 @@ app.include_router(internal_messages.router, tags=["internal-messages"])
 @app.get("/")
 async def root():
     """根路径，返回API信息"""
-    print("🏠 根路径被访问")
     return {
         "name": "TradingAgents-CN API",
         "version": get_version(),

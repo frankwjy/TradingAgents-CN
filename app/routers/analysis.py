@@ -23,7 +23,7 @@ from app.models.analysis import (
 )
 
 router = APIRouter()
-logger = logging.getLogger("webapi")
+logger = logging.getLogger(__name__)
 
 # 兼容性：保留原有的请求模型
 class SingleAnalyzeRequest(BaseModel):
