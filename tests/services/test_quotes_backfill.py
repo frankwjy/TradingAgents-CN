@@ -25,6 +25,13 @@ def test_offhours_backfill_when_empty(monkeypatch):
             self.modified_count = 0
             self.upserted_ids = {i: None for i in range(upserted)}
 
+    class _FakeCursor:
+        def __init__(self, data=None):
+            self._data = data or []
+
+        async def to_list(self, length=None):
+            return self._data
+
     class _FakeColl:
         def __init__(self):
             self.last_ops = None
@@ -38,6 +45,16 @@ def test_offhours_backfill_when_empty(monkeypatch):
         async def bulk_write(self, ops, ordered=False):
             self.last_ops = ops
             return _FakeResult(len(ops))
+
+        def find(self, *args, **kwargs):
+            # Return an empty cursor to simulate no historical data
+            return _FakeCursor()
+
+        def sort(self, *args, **kwargs):
+            return self
+
+        def limit(self, *args, **kwargs):
+            return self
 
     class _FakeDB:
         def __init__(self):
@@ -58,6 +75,7 @@ def test_offhours_backfill_when_empty(monkeypatch):
         # Force off-hours
         monkeypatch.setattr(QuotesIngestionService, "_is_trading_time", lambda self, now=None: False, raising=True)
         await svc.run_once()
+        # When historical data is empty, the service should try realtime backfill
         assert fake_db._coll.last_ops is not None
         assert len(fake_db._coll.last_ops) == 2
 

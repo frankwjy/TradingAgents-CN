@@ -523,6 +523,12 @@ class QuotesIngestionService:
             if is_empty:
                 logger.info("🔁 market_quotes 集合为空，尝试从历史数据导入")
                 await self.backfill_from_historical_data()
+
+                # 检查历史数据导入后集合是否仍然为空
+                still_empty = await self._collection_empty()
+                if still_empty:
+                    logger.info("🔁 历史数据导入后集合仍为空，尝试实时接口补数")
+                    await self.backfill_last_close_snapshot()
                 return
 
             # 如果集合不为空但数据陈旧，使用实时接口更新

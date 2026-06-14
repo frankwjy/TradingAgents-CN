@@ -87,6 +87,9 @@ def test_quotes_ingestion_run_once_writes_bulk(monkeypatch):
                 "600000": {"close": 9.8, "pct_chg": -0.3, "amount": 7.5e7},
             }, "fake"
 
+        def find_latest_trade_date_with_fallback(self):
+            return "20250102"
+
     monkeypatch.setattr(qis_mod, "DataSourceManager", _FakeManager, raising=True)
 
     # Capture bulk_write ops
@@ -107,6 +110,9 @@ def test_quotes_ingestion_run_once_writes_bulk(monkeypatch):
             self.last_ops = ops
             return _FakeResult(len(ops))
 
+        async def update_one(self, *args, **kwargs):
+            return _FakeResult(0)
+
     class _FakeDB:
         def __init__(self):
             self._coll = _FakeColl()
@@ -120,6 +126,15 @@ def test_quotes_ingestion_run_once_writes_bulk(monkeypatch):
         return fake_db
 
     monkeypatch.setattr(qis_mod, "get_mongo_db", _fake_get_mongo_db, raising=True)
+
+    # Mock _fetch_quotes_from_source to return fake data
+    def _fake_fetch_quotes(self, source_type, akshare_api=None):
+        return {
+            "000001": {"close": 10.1, "pct_chg": 0.1, "amount": 1.0e8},
+            "600000": {"close": 9.8, "pct_chg": -0.3, "amount": 7.5e7},
+        }, "fake"
+
+    monkeypatch.setattr(QuotesIngestionService, "_fetch_quotes_from_source", _fake_fetch_quotes, raising=True)
 
     async def _run():
         svc = QuotesIngestionService()
