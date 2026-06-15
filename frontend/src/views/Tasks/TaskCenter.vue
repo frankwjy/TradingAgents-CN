@@ -298,7 +298,7 @@ const loadList = async () => {
         const body2 = (res2 as any)?.data?.data || {}
         tasks = body2.tasks || []
         total.value = body2.total ?? tasks.length
-      } catch {}
+      } catch { /* ignore pagination errors */ }
     } else {
       total.value = body.total ?? tasks.length
     }

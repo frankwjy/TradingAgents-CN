@@ -2,17 +2,19 @@
 反爬虫检测模块
 检测AKShare请求是否被反爬虫机制拦截，区分"无数据"和"被封锁"
 """
+
 import logging
 import time
-from typing import Optional, Any, Dict
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class AntiCrawlStatus(Enum):
     """反爬虫状态枚举"""
+
     NORMAL = "normal"  # 正常
     RATE_LIMITED = "rate_limited"  # 被限速
     BLOCKED = "blocked"  # 被封锁
@@ -23,9 +25,10 @@ class AntiCrawlStatus(Enum):
 @dataclass
 class AntiCrawlResult:
     """反爬虫检测结果"""
+
     status: AntiCrawlStatus
     message: str
-    retry_after: Optional[float] = None  # 建议等待时间（秒）
+    retry_after: float | None = None  # 建议等待时间（秒）
     raw_response: Any = None  # 原始响应数据
 
 
@@ -60,7 +63,7 @@ class AntiCrawlDetector:
     EMPTY_DATA_THRESHOLD = 10
 
     # 最近请求记录（用于检测频率限制）
-    _request_history: Dict[str, list] = {}
+    _request_history: dict[str, list] = {}
     _history_window: float = 60.0  # 60秒窗口
 
     @classmethod
@@ -68,8 +71,8 @@ class AntiCrawlDetector:
         cls,
         response: Any,
         source: str = "akshare",
-        url: Optional[str] = None,
-        symbol: Optional[str] = None,
+        url: str | None = None,
+        symbol: str | None = None,
     ) -> AntiCrawlResult:
         """
         检测响应是否被反爬虫拦截
@@ -95,11 +98,11 @@ class AntiCrawlDetector:
             )
 
         # 3. 检查DataFrame是否为空
-        if hasattr(response, 'empty') and response.empty:
+        if hasattr(response, "empty") and response.empty:
             return cls._detect_empty_response(source, url, symbol)
 
         # 4. 检查DataFrame行数（如果行数过少，可能是反爬虫）
-        if hasattr(response, '__len__') and len(response) < cls.EMPTY_DATA_THRESHOLD:
+        if hasattr(response, "__len__") and len(response) < cls.EMPTY_DATA_THRESHOLD:
             # 对于某些接口，少量数据是正常的
             if symbol and len(response) > 0:
                 return AntiCrawlResult(
@@ -109,7 +112,7 @@ class AntiCrawlDetector:
             return cls._detect_suspicious_data(response, source)
 
         # 5. 检查响应内容中是否有反爬虫特征
-        if hasattr(response, 'to_string'):
+        if hasattr(response, "to_string"):
             content = response.to_string()
             block_result = cls._detect_from_content(content, source)
             if block_result.status != AntiCrawlStatus.NORMAL:
@@ -164,9 +167,7 @@ class AntiCrawlDetector:
         )
 
     @classmethod
-    def _detect_empty_response(
-        cls, source: str, url: Optional[str], symbol: Optional[str]
-    ) -> AntiCrawlResult:
+    def _detect_empty_response(cls, source: str, url: str | None, symbol: str | None) -> AntiCrawlResult:
         """检测空响应是否是反爬虫"""
         # 检查请求频率
         if cls._is_request_too_frequent(source):
@@ -245,8 +246,7 @@ class AntiCrawlDetector:
 
         # 清理过期记录
         cls._request_history[source] = [
-            t for t in cls._request_history[source]
-            if current_time - t < cls._history_window
+            t for t in cls._request_history[source] if current_time - t < cls._history_window
         ]
 
         # 检查频率（每分钟不超过30次）
@@ -273,7 +273,8 @@ class AntiCrawlDetector:
             return 0.0
 
         recent_requests = [
-            t for t in cls._request_history[source]
+            t
+            for t in cls._request_history[source]
             if current_time - t < 5.0  # 最近5秒
         ]
 

@@ -138,6 +138,7 @@ async def get_task_status_new(task_id: str, user: dict = Depends(get_current_use
 
                 # 使用统计算法估算时间
                 from app.services.memory_state_manager import calculate_estimated_duration_static
+
                 params = task_result.get("parameters", {})
                 research_depth = params.get("research_depth", "标准") if params else "标准"
                 selected_analysts = params.get("selected_analysts", []) if params else []

@@ -31,14 +31,14 @@ class MappingLoader:
 
     def __init__(
         self,
-        mappings_dir: Optional[Path] = None,
+        mappings_dir: Path | None = None,
         cache_ttl: int = _CACHE_TTL,
     ):
         self._mappings_dir = mappings_dir or _DEFAULT_MAPPINGS_DIR
         self._cache_ttl = cache_ttl
         self._lock = threading.Lock()
         # cache key -> (data, file_mtime, load_time)
-        self._cache: Dict[str, tuple] = {}
+        self._cache: dict[str, tuple] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -58,7 +58,7 @@ class MappingLoader:
         data = self.load(filename)
         return data.get(key, default)
 
-    def load(self, filename: str) -> Dict[str, Any]:
+    def load(self, filename: str) -> dict[str, Any]:
         """加载整个配置文件并返回其字典内容。
 
         带缓存：同一文件在 TTL 内只读取一次，文件修改时间变化时自动重载。
@@ -84,7 +84,7 @@ class MappingLoader:
 
         return data
 
-    def reload(self, filename: Optional[str] = None) -> None:
+    def reload(self, filename: str | None = None) -> None:
         """强制清除缓存，下次访问时重新加载。
 
         Args:
@@ -100,54 +100,52 @@ class MappingLoader:
         """列出所有可用的映射配置文件名（不含扩展名）。"""
         if not self._mappings_dir.is_dir():
             return []
-        return sorted(
-            p.stem for p in self._mappings_dir.glob("*.yaml")
-        )
+        return sorted(p.stem for p in self._mappings_dir.glob("*.yaml"))
 
     # ------------------------------------------------------------------
     # Convenience methods for commonly used mappings
     # ------------------------------------------------------------------
 
-    def get_llm_provider_names(self) -> Dict[str, str]:
+    def get_llm_provider_names(self) -> dict[str, str]:
         return self.get("provider_mappings", "llm_provider_names", {})
 
-    def get_data_source_names(self) -> Dict[str, str]:
+    def get_data_source_names(self) -> dict[str, str]:
         return self.get("provider_mappings", "data_source_names", {})
 
-    def get_llm_env_key_mapping(self) -> Dict[str, str]:
+    def get_llm_env_key_mapping(self) -> dict[str, str]:
         return self.get("provider_mappings", "llm_env_key_mapping", {})
 
-    def get_data_source_env_key_mapping(self) -> Dict[str, str]:
+    def get_data_source_env_key_mapping(self) -> dict[str, str]:
         return self.get("provider_mappings", "data_source_env_key_mapping", {})
 
-    def get_model_prefixes(self) -> Dict[str, str]:
+    def get_model_prefixes(self) -> dict[str, str]:
         return self.get("provider_mappings", "model_prefixes", {})
 
-    def get_model_provider_map(self) -> Dict[str, str]:
+    def get_model_provider_map(self) -> dict[str, str]:
         return self.get("provider_mappings", "model_provider_map", {})
 
-    def get_provider_normalization(self) -> Dict[str, str]:
+    def get_provider_normalization(self) -> dict[str, str]:
         return self.get("provider_mappings", "provider_normalization", {})
 
-    def get_aggregator_providers(self) -> Dict[str, Any]:
+    def get_aggregator_providers(self) -> dict[str, Any]:
         return self.get("provider_mappings", "aggregator_providers", {})
 
-    def get_market_category_map(self) -> Dict[str, str]:
+    def get_market_category_map(self) -> dict[str, str]:
         return self.get("market_mappings", "market_category_map", {})
 
-    def get_market_type_names(self) -> Dict[str, str]:
+    def get_market_type_names(self) -> dict[str, str]:
         return self.get("market_mappings", "market_type_names", {})
 
-    def get_market_currency_map(self) -> Dict[str, str]:
+    def get_market_currency_map(self) -> dict[str, str]:
         return self.get("market_mappings", "market_currency_map", {})
 
-    def get_initial_cash_by_market(self) -> Dict[str, float]:
+    def get_initial_cash_by_market(self) -> dict[str, float]:
         return self.get("market_mappings", "initial_cash_by_market", {})
 
-    def get_data_source_priority(self) -> Dict[str, list]:
+    def get_data_source_priority(self) -> dict[str, list]:
         return self.get("market_mappings", "data_source_priority", {})
 
-    def get_period_map(self, source: str = "yahoo") -> Dict[str, str]:
+    def get_period_map(self, source: str = "yahoo") -> dict[str, str]:
         """获取周期映射。
 
         Args:
@@ -156,52 +154,52 @@ class MappingLoader:
         key = f"period_map_{source}"
         return self.get("market_mappings", key, {})
 
-    def get_adjust_map(self) -> Dict[str, str]:
+    def get_adjust_map(self) -> dict[str, str]:
         return self.get("market_mappings", "adjust_map", {})
 
-    def get_cache_ttl_config(self) -> Dict[str, Dict[str, int]]:
+    def get_cache_ttl_config(self) -> dict[str, dict[str, int]]:
         return self.get("market_mappings", "cache_ttl", {})
 
-    def get_tushare_rate_limits(self) -> Dict[str, Dict[str, int]]:
+    def get_tushare_rate_limits(self) -> dict[str, dict[str, int]]:
         return self.get("market_mappings", "tushare_rate_limits", {})
 
-    def get_numeric_to_depth(self) -> Dict[int, str]:
+    def get_numeric_to_depth(self) -> dict[int, str]:
         return self.get("analysis_mappings", "numeric_to_depth", {})
 
-    def get_depth_to_numeric(self) -> Dict[str, int]:
+    def get_depth_to_numeric(self) -> dict[str, int]:
         return self.get("analysis_mappings", "depth_to_numeric", {})
 
-    def get_analyst_steps(self) -> Dict[str, Dict[str, str]]:
+    def get_analyst_steps(self) -> dict[str, dict[str, str]]:
         return self.get("analysis_mappings", "analyst_steps", {})
 
-    def get_base_time_per_depth(self) -> Dict[int, int]:
+    def get_base_time_per_depth(self) -> dict[int, int]:
         return self.get("analysis_mappings", "base_time_per_depth", {})
 
-    def get_model_time_multiplier(self) -> Dict[str, float]:
+    def get_model_time_multiplier(self) -> dict[str, float]:
         return self.get("analysis_mappings", "model_time_multiplier", {})
 
-    def get_depth_time_multiplier(self) -> Dict[int, float]:
+    def get_depth_time_multiplier(self) -> dict[int, float]:
         return self.get("analysis_mappings", "depth_time_multiplier", {})
 
-    def get_action_translation(self) -> Dict[str, str]:
+    def get_action_translation(self) -> dict[str, str]:
         return self.get("analysis_mappings", "action_translation", {})
 
-    def get_status_mapping(self) -> Dict[str, str]:
+    def get_status_mapping(self) -> dict[str, str]:
         return self.get("analysis_mappings", "status_mapping", {})
 
-    def get_http_method_names(self) -> Dict[str, str]:
+    def get_http_method_names(self) -> dict[str, str]:
         return self.get("analysis_mappings", "http_method_names", {})
 
-    def get_module_titles(self) -> Dict[str, str]:
+    def get_module_titles(self) -> dict[str, str]:
         return self.get("ui_mappings", "module_titles", {})
 
-    def get_capability_badges(self) -> Dict[int, Dict[str, str]]:
+    def get_capability_badges(self) -> dict[int, dict[str, str]]:
         return self.get("ui_mappings", "capability_badges", {})
 
-    def get_role_badges(self) -> Dict[str, Dict[str, str]]:
+    def get_role_badges(self) -> dict[str, dict[str, str]]:
         return self.get("ui_mappings", "role_badges", {})
 
-    def get_feature_badges(self) -> Dict[str, Dict[str, str]]:
+    def get_feature_badges(self) -> dict[str, dict[str, str]]:
         return self.get("ui_mappings", "feature_badges", {})
 
     def get_sensitive_keys(self) -> list:
@@ -223,7 +221,7 @@ class MappingLoader:
             return {}, 0.0
         try:
             mtime = file_path.stat().st_mtime
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
             if data is None:
                 data = {}
@@ -234,7 +232,7 @@ class MappingLoader:
 
 
 # 全局单例
-_mapping_loader: Optional[MappingLoader] = None
+_mapping_loader: MappingLoader | None = None
 _init_lock = threading.Lock()
 
 

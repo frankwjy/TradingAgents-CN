@@ -20,7 +20,7 @@ class ConfigEventBus:
     """Simple synchronous pub/sub for configuration change events."""
 
     def __init__(self) -> None:
-        self._listeners: Dict[str, Callable] = {}
+        self._listeners: dict[str, Callable] = {}
 
     def subscribe(self, callback: Callable) -> str:
         """Register a listener. Returns a token for later unsubscribe."""
