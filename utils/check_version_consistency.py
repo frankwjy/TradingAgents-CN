@@ -55,6 +55,37 @@ def check_special_files(file_path: Path, content: str, target_version: str):
             issues.append({"line": 1, "found": "(missing version)", "expected": target_numeric, "context": ""})
         return issues
 
+    # 1b) frontend/package.json: version 字段应与目标数字版本一致
+    if file_path.name == 'package.json':
+        m = re.search(r'"version"\s*:\s*"([^"]+)"', content)
+        if m:
+            found = m.group(1).strip()
+            if found != target_numeric:
+                issues.append({
+                    'line': content[:m.start()].count('\n') + 1,
+                    'found': found,
+                    'expected': target_numeric,
+                    'context': content[max(0, m.start()-20):m.end()+20]
+                })
+        else:
+            issues.append({'line': 1, 'found': '(missing version)', 'expected': target_numeric, 'context': ''})
+        return issues
+
+    # 1c) tradingagents/__init__.py: __version__ 应动态读取 VERSION 文件，不应硬编码
+    if file_path.name == '__init__.py' and 'tradingagents' in str(file_path):
+        if '__version__ = "' in content and '_read_version' not in content:
+            m = re.search(r'__version__\s*=\s*"([^"]+)"', content)
+            if m:
+                found = m.group(1).strip()
+                if found != target_numeric:
+                    issues.append({
+                        'line': content[:m.start()].count('\n') + 1,
+                        'found': found,
+                        'expected': target_numeric,
+                        'context': content[max(0, m.start()-20):m.end()+20]
+                    })
+        return issues
+
     # 2) README.md: 徽章与“最新版本”提示
     if file_path.name == "README.md":
         # shields 徽章会把单个 - 显示为 --
@@ -112,6 +143,8 @@ def main():
     files_to_check = [
         "README.md",
         "pyproject.toml",
+        "frontend/package.json",
+        "tradingagents/__init__.py",
         "docs/releases/CHANGELOG.md",  # 仅用于存在性校验，内部忽略检查
     ]
 

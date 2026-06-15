@@ -1,0 +1,16 @@
+{
+  "data_source_akshare_availability": {
+    "elapsed_seconds": 0.1484,
+    "details": {
+      "available": true
+    },
+    "passed": true
+  },
+  "data_source_baostock_availability": {
+    "elapsed_seconds": 0.0051,
+    "details": {
+      "available": true
+    },
+    "passed": true
+  }
+}

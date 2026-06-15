@@ -60,6 +60,10 @@ def test_scheduler_adds_quotes_job(monkeypatch):
         async def run_full_sync(self, force: bool = False):
             return None
 
+    # Mock startup validator to avoid configuration errors
+    def _fake_validate_startup_config():
+        return None
+
     monkeypatch.setattr(main_mod, "init_db", _noop_async, raising=True)
     monkeypatch.setattr(main_mod, "close_db", _noop_async, raising=True)
     monkeypatch.setattr(main_mod, "get_basics_sync_service", lambda: _FakeBasicsService(), raising=True)
@@ -68,6 +72,10 @@ def test_scheduler_adds_quotes_job(monkeypatch):
     monkeypatch.setattr(main_mod, "AsyncIOScheduler", lambda *args, **kwargs: fake_scheduler, raising=True)
     monkeypatch.setattr(main_mod, "QuotesIngestionService", _FakeQuotesIngestion, raising=True)
     monkeypatch.setattr(main_mod.asyncio, "create_task", _fake_asyncio_create_task, raising=True)
+
+    # Mock the startup validator
+    from app.core import startup_validator
+    monkeypatch.setattr(startup_validator, "validate_startup_config", _fake_validate_startup_config, raising=True)
 
     # Directly drive the lifespan to avoid importing full router stack
     import asyncio as _asyncio

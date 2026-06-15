@@ -364,7 +364,8 @@ def _default_instance_tag() -> str:
 
 
 def _sanitize_mongo_db_name(name: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9._-]+", "_", str(name)).strip("._-")
+    # MongoDB不允许数据库名称包含点(.)，所以也要替换点
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(name)).strip("_-")
     if not cleaned:
         return "tradingagentscn"
 

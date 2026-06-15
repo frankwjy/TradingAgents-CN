@@ -4,46 +4,7 @@ import re
 from datetime import datetime
 from typing import Annotated
 
-ticker_to_company = {
-    "AAPL": "Apple",
-    "MSFT": "Microsoft",
-    "GOOGL": "Google",
-    "AMZN": "Amazon",
-    "TSLA": "Tesla",
-    "NVDA": "Nvidia",
-    "TSM": "Taiwan Semiconductor Manufacturing Company OR TSMC",
-    "JPM": "JPMorgan Chase OR JP Morgan",
-    "JNJ": "Johnson & Johnson OR JNJ",
-    "V": "Visa",
-    "WMT": "Walmart",
-    "META": "Meta OR Facebook",
-    "AMD": "AMD",
-    "INTC": "Intel",
-    "QCOM": "Qualcomm",
-    "BABA": "Alibaba",
-    "ADBE": "Adobe",
-    "NFLX": "Netflix",
-    "CRM": "Salesforce",
-    "PYPL": "PayPal",
-    "PLTR": "Palantir",
-    "MU": "Micron",
-    "SQ": "Block OR Square",
-    "ZM": "Zoom",
-    "CSCO": "Cisco",
-    "SHOP": "Shopify",
-    "ORCL": "Oracle",
-    "X": "Twitter OR X",
-    "SPOT": "Spotify",
-    "AVGO": "Broadcom",
-    "ASML": "ASML ",
-    "TWLO": "Twilio",
-    "SNAP": "Snap Inc.",
-    "TEAM": "Atlassian",
-    "SQSP": "Squarespace",
-    "UBER": "Uber",
-    "ROKU": "Roku",
-    "PINS": "Pinterest",
-}
+from tradingagents.config.us_stock_names import get_search_string as _get_search_string
 
 
 def fetch_top_from_category(
@@ -89,12 +50,8 @@ def fetch_top_from_category(
 
                 # if is company_news, check that the title or the content has the company's name (query) mentioned
                 if "company" in category and query:
-                    search_terms = []
-                    if "OR" in ticker_to_company[query]:
-                        search_terms = ticker_to_company[query].split(" OR ")
-                    else:
-                        search_terms = [ticker_to_company[query]]
-
+                    search_str = _get_search_string(query)
+                    search_terms = search_str.split(" OR ") if " OR " in search_str else [search_str]
                     search_terms.append(query)
 
                     found = False

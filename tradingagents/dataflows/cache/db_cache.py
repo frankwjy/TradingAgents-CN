@@ -55,9 +55,9 @@ class DatabaseCacheManager:
             mongodb_db: MongoDB数据库名
             redis_db: Redis数据库编号
         """
-        # 从配置文件获取正确的端口
-        mongodb_port = os.getenv("MONGODB_PORT", "27018")
-        redis_port = os.getenv("REDIS_PORT", "6380")
+        # 从配置文件获取正确的端口（与 database_manager 默认端口一致）
+        mongodb_port = os.getenv("MONGODB_PORT", "27017")
+        redis_port = os.getenv("REDIS_PORT", "6379")
         mongodb_password = os.getenv("MONGODB_PASSWORD", "tradingagents123")
         redis_password = os.getenv("REDIS_PASSWORD", "tradingagents123")
 
@@ -134,7 +134,7 @@ class DatabaseCacheManager:
             self.redis_client = None
 
     def _create_mongodb_indexes(self):
-        """创建MongoDB索引"""
+        """创建MongoDB索引（含TTL自动过期）"""
         if self.mongodb_db is None:
             return
 
@@ -148,6 +148,7 @@ class DatabaseCacheManager:
                 ("end_date", 1)
             ])
             stock_collection.create_index([("created_at", 1)])
+            stock_collection.create_index([("created_at", 1)], expireAfterSeconds=24 * 3600, name="ttl_24h")
 
             # 新闻数据集合索引
             news_collection = self.mongodb_db.news_data
@@ -157,6 +158,7 @@ class DatabaseCacheManager:
                 ("date_range", 1)
             ])
             news_collection.create_index([("created_at", 1)])
+            news_collection.create_index([("created_at", 1)], expireAfterSeconds=24 * 3600, name="ttl_24h")
 
             # 基本面数据集合索引
             fundamentals_collection = self.mongodb_db.fundamentals_data
@@ -166,8 +168,9 @@ class DatabaseCacheManager:
                 ("analysis_date", 1)
             ])
             fundamentals_collection.create_index([("created_at", 1)])
+            fundamentals_collection.create_index([("created_at", 1)], expireAfterSeconds=48 * 3600, name="ttl_48h")
 
-            logger.info(f"✅ MongoDB索引创建完成")
+            logger.info(f"✅ MongoDB索引创建完成（含TTL自动过期）")
 
         except Exception as e:
             logger.error(f"⚠️ MongoDB索引创建失败: {e}")
