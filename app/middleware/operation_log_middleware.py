@@ -3,32 +3,33 @@
 自动记录用户的API操作日志
 """
 
-import time
 import json
 import logging
-from typing import Optional, Dict, Any
+import time
+from typing import Any, Dict, Optional
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.services.operation_log_service import log_operation
-from app.models.operation_log import ActionType
 from app.core.mapping_loader import get_mapping_loader
+from app.models.operation_log import ActionType
+from app.services.operation_log_service import log_operation
 
 logger = logging.getLogger(__name__)
 
 # 全局开关：是否启用操作日志记录（可由系统设置动态控制）
 OPLOG_ENABLED: bool = True
 
+
 def set_operation_log_enabled(flag: bool) -> None:
     global OPLOG_ENABLED
     OPLOG_ENABLED = bool(flag)
 
 
-
 class OperationLogMiddleware(BaseHTTPMiddleware):
     """操作日志记录中间件"""
 
-    def __init__(self, app, skip_paths: Optional[list] = None):
+    def __init__(self, app, skip_paths: list | None = None):
         super().__init__(app)
         # 跳过记录日志的路径
         self.skip_paths = skip_paths or [
@@ -89,7 +90,7 @@ class OperationLogMiddleware(BaseHTTPMiddleware):
                     duration_ms=duration_ms,
                     ip_address=ip_address,
                     user_agent=user_agent,
-                    request=request
+                    request=request,
                 )
             except Exception as e:
                 logger.error(f"记录操作日志失败: {e}")
@@ -136,7 +137,7 @@ class OperationLogMiddleware(BaseHTTPMiddleware):
 
         return "unknown"
 
-    async def _get_user_info(self, request: Request) -> Optional[Dict[str, Any]]:
+    async def _get_user_info(self, request: Request) -> dict[str, Any] | None:
         """获取用户信息"""
         try:
             # 从请求状态中获取用户信息（由认证中间件设置）
@@ -150,17 +151,12 @@ class OperationLogMiddleware(BaseHTTPMiddleware):
 
                 # 使用AuthService验证token
                 from app.services.auth_service import AuthService
+
                 token_data = AuthService.verify_token(token)
 
                 if token_data:
                     # 返回用户信息（开源版只有admin用户）
-                    return {
-                        "id": "admin",
-                        "username": "admin",
-                        "name": "管理员",
-                        "is_admin": True,
-                        "roles": ["admin"]
-                    }
+                    return {"id": "admin", "username": "admin", "name": "管理员", "is_admin": True, "roles": ["admin"]}
 
             return None
         except Exception as e:
@@ -225,14 +221,14 @@ class OperationLogMiddleware(BaseHTTPMiddleware):
 
     async def _log_operation(
         self,
-        user_info: Dict[str, Any],
+        user_info: dict[str, Any],
         method: str,
         path: str,
         response: Response,
         duration_ms: int,
         ip_address: str,
         user_agent: str,
-        request: Request
+        request: Request,
     ):
         """记录操作日志"""
         try:
@@ -268,7 +264,7 @@ class OperationLogMiddleware(BaseHTTPMiddleware):
                 duration_ms=duration_ms,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                session_id=user_info.get("session_id")
+                session_id=user_info.get("session_id"),
             )
 
         except Exception as e:
@@ -278,13 +274,13 @@ class OperationLogMiddleware(BaseHTTPMiddleware):
 # 便捷函数：手动记录操作日志
 async def manual_log_operation(
     request: Request,
-    user_info: Dict[str, Any],
+    user_info: dict[str, Any],
     action_type: str,
     action: str,
-    details: Optional[Dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
     success: bool = True,
-    error_message: Optional[str] = None,
-    duration_ms: Optional[int] = None
+    error_message: str | None = None,
+    duration_ms: int | None = None,
 ):
     """手动记录操作日志"""
     try:
@@ -302,7 +298,7 @@ async def manual_log_operation(
             duration_ms=duration_ms,
             ip_address=ip_address,
             user_agent=user_agent,
-            session_id=user_info.get("session_id")
+            session_id=user_info.get("session_id"),
         )
     except Exception as e:
         logger.error(f"手动记录操作日志失败: {e}")

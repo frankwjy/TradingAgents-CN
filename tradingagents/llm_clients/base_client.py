@@ -1,6 +1,6 @@
-from abc import ABC, abstractmethod
-from typing import Any, Optional
 import warnings
+from abc import ABC, abstractmethod
+from typing import Any
 
 
 def normalize_content(response):
@@ -8,8 +8,11 @@ def normalize_content(response):
     content = getattr(response, "content", None)
     if isinstance(content, list):
         texts = [
-            item.get("text", "") if isinstance(item, dict) and item.get("type") == "text"
-            else item if isinstance(item, str) else ""
+            item.get("text", "")
+            if isinstance(item, dict) and item.get("type") == "text"
+            else item
+            if isinstance(item, str)
+            else ""
             for item in content
         ]
         response.content = "\n".join(text for text in texts if text)
@@ -19,7 +22,7 @@ def normalize_content(response):
 class BaseLLMClient(ABC):
     """Minimal provider wrapper used by CLI and future graph integration."""
 
-    def __init__(self, model: str, base_url: Optional[str] = None, **kwargs):
+    def __init__(self, model: str, base_url: str | None = None, **kwargs):
         self.model = model
         self.base_url = base_url
         self.kwargs = kwargs

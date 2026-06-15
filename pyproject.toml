@@ -89,6 +89,11 @@ dependencies = [
 
 [project.optional-dependencies]
 qianfan = ["qianfan>=0.4.20"]
+dev = [
+    "ruff>=0.4.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
+]
 
 [project.scripts]
 tradingagents = "main:main"
@@ -96,3 +101,62 @@ tradingagents = "main:main"
 [tool.setuptools.packages.find]
 include = ["tradingagents*"]
 exclude = ["tests*", "docs*", "scripts*", "data*", "logs*", "reports*", "results*", "eval_results*", "upstream_contribution*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+exclude = ["scripts/*", "scripts/**", "web/*", "web/**", "cli/*", "cli/**", "examples/*", "examples/**", "tradingagents/dataflows/cache/*", "tests/*"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E402",   # module import not at top (sys.path manipulation)
+    "B008",   # do not perform function calls in argument defaults
+    "SIM108", # use ternary operator (readability tradeoff)
+    "B904",   # raise without from inside except (legacy pattern)
+    "F841",   # unused variable (legacy code)
+    "E722",   # bare except (legacy code)
+    "F401",   # unused import (legacy code)
+    "B007",   # unused loop control variable
+    "SIM105", # suppressible exception (contextlib.suppress)
+    "SIM102", # collapsible if
+    "B905",   # zip without explicit strict
+    "SIM118", # in-dict-keys
+    "E712",   # true/false comparison
+    "SIM103", # needless bool
+    "F811",   # redefined while unused
+    "F821",   # undefined name (dynamic imports)
+    "F823",   # undefined local
+    "F403",   # undefined local with import star
+    "F405",   # undefined local with import star usage
+    "SIM202", # negate not equal op
+    "SIM401", # if-else block instead of dict get
+    "B006",   # mutable argument default
+    "B028",   # no explicit stacklevel
+    "F601",   # multi value repeated key literal
+    "SIM110", # reimplemented builtin
+    "SIM113", # enumerate for loop
+    "SIM117", # multiple with statements
+    "UP035",  # deprecated import
+    "UP036",  # outdated version block
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tradingagents", "app"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/**" = ["ALL"]
+"scripts/*" = ["ALL"]
+"web/**" = ["ALL"]
+"cli/**" = ["ALL"]
+"examples/**" = ["ALL"]
+"tests/**" = ["W291", "W293"]

@@ -7,24 +7,24 @@ import asyncio
 import logging
 import signal
 import sys
-import uuid
 import traceback
+import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.services.queue_service import get_queue_service
-from app.services.analysis_service import get_analysis_service
-from app.core.database import init_database, close_database
-from app.core.redis_client import init_redis, close_redis
 from app.core.config import settings
-from app.models.analysis import AnalysisTask, AnalysisParameters
+from app.core.database import close_database, init_database
+from app.core.redis_client import close_redis, init_redis
+from app.models.analysis import AnalysisParameters, AnalysisTask
+from app.services.analysis_service import get_analysis_service
 from app.services.config_provider import provider as config_provider
 from app.services.queue import DEFAULT_USER_CONCURRENT_LIMIT, GLOBAL_CONCURRENT_LIMIT, VISIBILITY_TIMEOUT_SECONDS
+from app.services.queue_service import get_queue_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,17 +32,17 @@ logger = logging.getLogger(__name__)
 class AnalysisWorker:
     """分析任务Worker类"""
 
-    def __init__(self, worker_id: Optional[str] = None):
+    def __init__(self, worker_id: str | None = None):
         self.worker_id = worker_id or f"worker-{uuid.uuid4().hex[:8]}"
         self.queue_service = None
         self.running = False
         self.current_task = None
 
         # 配置参数（可由系统设置覆盖）
-        self.heartbeat_interval = int(getattr(settings, 'WORKER_HEARTBEAT_INTERVAL', 30))
-        self.max_retries = int(getattr(settings, 'QUEUE_MAX_RETRIES', 3))
-        self.poll_interval = float(getattr(settings, 'QUEUE_POLL_INTERVAL_SECONDS', 1))  # 队列轮询间隔（秒）
-        self.cleanup_interval = float(getattr(settings, 'QUEUE_CLEANUP_INTERVAL_SECONDS', 60))
+        self.heartbeat_interval = int(getattr(settings, "WORKER_HEARTBEAT_INTERVAL", 30))
+        self.max_retries = int(getattr(settings, "QUEUE_MAX_RETRIES", 3))
+        self.poll_interval = float(getattr(settings, "QUEUE_POLL_INTERVAL_SECONDS", 1))  # 队列轮询间隔（秒）
+        self.cleanup_interval = float(getattr(settings, "QUEUE_CLEANUP_INTERVAL_SECONDS", 60))
 
         # 注册信号处理器
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -75,13 +75,23 @@ class AnalysisWorker:
 
             # 应用队列并发/超时配置 + Worker/轮询参数
             try:
-                self.queue_service.user_concurrent_limit = int(effective_settings.get("max_concurrent_tasks", DEFAULT_USER_CONCURRENT_LIMIT))
-                self.queue_service.global_concurrent_limit = int(effective_settings.get("max_concurrent_tasks", GLOBAL_CONCURRENT_LIMIT))
-                self.queue_service.visibility_timeout = int(effective_settings.get("default_analysis_timeout", VISIBILITY_TIMEOUT_SECONDS))
+                self.queue_service.user_concurrent_limit = int(
+                    effective_settings.get("max_concurrent_tasks", DEFAULT_USER_CONCURRENT_LIMIT)
+                )
+                self.queue_service.global_concurrent_limit = int(
+                    effective_settings.get("max_concurrent_tasks", GLOBAL_CONCURRENT_LIMIT)
+                )
+                self.queue_service.visibility_timeout = int(
+                    effective_settings.get("default_analysis_timeout", VISIBILITY_TIMEOUT_SECONDS)
+                )
                 # Worker intervals
-                self.heartbeat_interval = int(effective_settings.get("worker_heartbeat_interval_seconds", self.heartbeat_interval))
+                self.heartbeat_interval = int(
+                    effective_settings.get("worker_heartbeat_interval_seconds", self.heartbeat_interval)
+                )
                 self.poll_interval = float(effective_settings.get("queue_poll_interval_seconds", self.poll_interval))
-                self.cleanup_interval = float(effective_settings.get("queue_cleanup_interval_seconds", self.cleanup_interval))
+                self.cleanup_interval = float(
+                    effective_settings.get("queue_cleanup_interval_seconds", self.cleanup_interval)
+                )
             except Exception:
                 pass
             # 启动心跳任务
@@ -130,7 +140,7 @@ class AnalysisWorker:
 
         logger.info(f"🔄 Worker {self.worker_id} 工作循环结束")
 
-    async def _process_task(self, task_data: Dict[str, Any]):
+    async def _process_task(self, task_data: dict[str, Any]):
         """处理单个任务"""
         task_id = task_data.get("id")
         stock_code = task_data.get("symbol")
@@ -146,6 +156,7 @@ class AnalysisWorker:
             parameters_dict = task_data.get("parameters", {})
             if isinstance(parameters_dict, str):
                 import json
+
                 parameters_dict = json.loads(parameters_dict)
 
             parameters = AnalysisParameters(**parameters_dict)
@@ -155,14 +166,11 @@ class AnalysisWorker:
                 user_id=user_id,
                 stock_code=stock_code,
                 batch_id=task_data.get("batch_id"),
-                parameters=parameters
+                parameters=parameters,
             )
 
             # 执行分析
-            result = await get_analysis_service().execute_analysis_task(
-                task,
-                progress_callback=self._progress_callback
-            )
+            result = await get_analysis_service().execute_analysis_task(task, progress_callback=self._progress_callback)
 
             success = True
             logger.info(f"✅ 任务完成: {task_id} - 耗时: {result.execution_time:.2f}秒")
@@ -200,13 +208,14 @@ class AnalysisWorker:
         """发送心跳"""
         try:
             from app.core.redis_client import get_redis_service
+
             redis_service = get_redis_service()
 
             heartbeat_data = {
                 "worker_id": self.worker_id,
                 "timestamp": datetime.utcnow().isoformat(),
                 "current_task": self.current_task,
-                "status": "active" if self.running else "stopping"
+                "status": "active" if self.running else "stopping",
             }
 
             heartbeat_key = f"worker:{self.worker_id}:heartbeat"
@@ -234,6 +243,7 @@ class AnalysisWorker:
         try:
             # 清理心跳记录
             from app.core.redis_client import get_redis_service
+
             redis_service = get_redis_service()
             heartbeat_key = f"worker:{self.worker_id}:heartbeat"
             await redis_service.redis.delete(heartbeat_key)
@@ -251,10 +261,7 @@ class AnalysisWorker:
 async def main():
     """主函数"""
     # 设置日志
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # 创建并启动Worker
     worker = AnalysisWorker()

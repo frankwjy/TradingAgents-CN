@@ -1,9 +1,9 @@
 import argparse
 import json
 import os
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set
 
 from pymongo import MongoClient
 
@@ -26,20 +26,20 @@ DEFAULT_EXCLUDED_COLLECTIONS = {
 }
 
 
-def _split_csv(value: Optional[str]) -> List[str]:
+def _split_csv(value: str | None) -> list[str]:
     if not value:
         return []
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-def _parse_since(value: Optional[str]) -> Optional[datetime]:
+def _parse_since(value: str | None) -> datetime | None:
     if not value:
         return None
     normalized = value.strip().replace("Z", "+00:00")
     return datetime.fromisoformat(normalized)
 
 
-def _build_since_query(since: Optional[datetime]) -> Dict[str, object]:
+def _build_since_query(since: datetime | None) -> dict[str, object]:
     if since is None:
         return {}
 
@@ -54,15 +54,15 @@ def _build_since_query(since: Optional[datetime]) -> Dict[str, object]:
     }
 
 
-def _get_collection_names(db) -> List[str]:
+def _get_collection_names(db) -> list[str]:
     return sorted(db.list_collection_names())
 
 
 def _iter_collections(
     db,
-    include: Optional[Set[str]],
-    exclude: Set[str],
-) -> List[str]:
+    include: set[str] | None,
+    exclude: set[str],
+) -> list[str]:
     names = _get_collection_names(db)
     if include:
         names = [n for n in names if n in include]
@@ -78,7 +78,7 @@ def _copy_collection(
     drop_target: bool,
     dry_run: bool,
     batch_size: int,
-    since: Optional[datetime],
+    since: datetime | None,
     limit: int,
 ) -> dict:
     src = source_db[name]
@@ -144,7 +144,7 @@ def _copy_collection(
     }
 
 
-def _write_summary_json(path: str, summary: Dict[str, object]) -> None:
+def _write_summary_json(path: str, summary: dict[str, object]) -> None:
     output_path = Path(path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
@@ -153,7 +153,7 @@ def _write_summary_json(path: str, summary: Dict[str, object]) -> None:
     )
 
 
-def main(argv: Optional[Iterable[str]] = None) -> int:
+def main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="migrate_mongo_db")
     parser.add_argument("--mongo-uri", default=os.getenv("MONGO_URI") or settings.MONGO_URI)
     parser.add_argument("--source-db", default=os.getenv("MONGO_SOURCE_DB") or "tradingagents")
@@ -161,11 +161,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser.add_argument("--include", default="", help="Comma-separated collection names to include")
     parser.add_argument("--exclude", default="", help="Comma-separated collection names to exclude")
     parser.add_argument("--since", default="", help="Incremental migration lower bound, ISO-8601 format")
-    parser.add_argument("--show-default-excludes", action="store_true", help="Print default excluded large/cache collections and exit")
+    parser.add_argument(
+        "--show-default-excludes", action="store_true", help="Print default excluded large/cache collections and exit"
+    )
     parser.add_argument("--drop-target", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--batch-size", type=int, default=500)
-    parser.add_argument("--limit", type=int, default=0, help="Per-collection document limit for small-sample validation")
+    parser.add_argument(
+        "--limit", type=int, default=0, help="Per-collection document limit for small-sample validation"
+    )
     parser.add_argument("--summary-json", default="", help="Write migration summary JSON to file")
     args = parser.parse_args(list(argv) if argv is not None else None)
 

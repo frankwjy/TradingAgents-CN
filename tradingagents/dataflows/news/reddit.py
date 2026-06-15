@@ -1,19 +1,14 @@
-import requests
-import time
 import json
-from datetime import datetime, timedelta
-from contextlib import contextmanager
-from typing import Annotated
 import os
 import re
+from datetime import datetime
+from typing import Annotated
 
 from tradingagents.config.us_stock_names import get_search_string as _get_search_string
 
 
 def fetch_top_from_category(
-    category: Annotated[
-        str, "Category to fetch top post from. Collection of subreddits."
-    ],
+    category: Annotated[str, "Category to fetch top post from. Collection of subreddits."],
     date: Annotated[str, "Date to fetch top posts from."],
     max_limit: Annotated[int, "Maximum number of posts to fetch."],
     query: Annotated[str, "Optional query to search for in the subreddit."] = None,
@@ -31,9 +26,7 @@ def fetch_top_from_category(
             "REDDIT FETCHING ERROR: max limit is less than the number of files in the category. Will not be able to fetch any posts"
         )
 
-    limit_per_subreddit = max_limit // len(
-        os.listdir(os.path.join(base_path, category))
-    )
+    limit_per_subreddit = max_limit // len(os.listdir(os.path.join(base_path, category)))
 
     for data_file in os.listdir(os.path.join(base_path, category)):
         # check if data_file is a .jsonl file
@@ -51,9 +44,7 @@ def fetch_top_from_category(
                 parsed_line = json.loads(line)
 
                 # select only lines that are from the date
-                post_date = datetime.utcfromtimestamp(
-                    parsed_line["created_utc"]
-                ).strftime("%Y-%m-%d")
+                post_date = datetime.utcfromtimestamp(parsed_line["created_utc"]).strftime("%Y-%m-%d")
                 if post_date != date:
                     continue
 
@@ -65,9 +56,9 @@ def fetch_top_from_category(
 
                     found = False
                     for term in search_terms:
-                        if re.search(
-                            term, parsed_line["title"], re.IGNORECASE
-                        ) or re.search(term, parsed_line["selftext"], re.IGNORECASE):
+                        if re.search(term, parsed_line["title"], re.IGNORECASE) or re.search(
+                            term, parsed_line["selftext"], re.IGNORECASE
+                        ):
                             found = True
                             break
 

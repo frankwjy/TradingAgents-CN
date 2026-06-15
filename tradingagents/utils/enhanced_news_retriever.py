@@ -6,11 +6,12 @@ to reduce noise from unrelated articles (ETF mentions, index fund news, etc.).
 """
 
 import logging
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
 import pandas as pd
 
-from .news_filter import create_news_filter, get_company_name, NewsRelevanceFilter
 from .enhanced_news_filter import create_enhanced_news_filter
+from .news_filter import NewsRelevanceFilter, create_news_filter, get_company_name
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,9 @@ class EnhancedNewsRetriever:
     only news directly related to the target stock is returned.
     """
 
-    def __init__(self, stock_code: str, use_semantic: bool = False,
-                 use_local_model: bool = False, min_score: float = 30):
+    def __init__(
+        self, stock_code: str, use_semantic: bool = False, use_local_model: bool = False, min_score: float = 30
+    ):
         """
         Args:
             stock_code: Stock code (e.g. "600036")
@@ -33,7 +35,7 @@ class EnhancedNewsRetriever:
             min_score: Minimum relevance score threshold (0-100)
         """
         self.stock_code = stock_code
-        self.clean_code = stock_code.split('.')[0]
+        self.clean_code = stock_code.split(".")[0]
         self.use_semantic = use_semantic
         self.use_local_model = use_local_model
         self.min_score = min_score
@@ -45,7 +47,7 @@ class EnhancedNewsRetriever:
             use_local_model=use_local_model,
         )
 
-    def retrieve_filtered_news(self, max_news: int = 20) -> Optional[pd.DataFrame]:
+    def retrieve_filtered_news(self, max_news: int = 20) -> pd.DataFrame | None:
         """
         Retrieve news from AKShare and apply relevance filtering.
 
@@ -67,17 +69,13 @@ class EnhancedNewsRetriever:
 
             logger.info(f"[增强新闻检索] 获取到 {len(news_df)} 条新闻，开始过滤")
 
-            filtered_df = self._filter.filter_news_enhanced(
-                news_df, min_score=self.min_score
-            )
+            filtered_df = self._filter.filter_news_enhanced(news_df, min_score=self.min_score)
 
             if filtered_df.empty:
-                logger.info(f"[增强新闻检索] 过滤后无相关新闻，返回全部原始新闻")
+                logger.info("[增强新闻检索] 过滤后无相关新闻，返回全部原始新闻")
                 return news_df
 
-            logger.info(
-                f"[增强新闻检索] 过滤完成: {len(news_df)}条 → {len(filtered_df)}条"
-            )
+            logger.info(f"[增强新闻检索] 过滤完成: {len(news_df)}条 → {len(filtered_df)}条")
             return filtered_df
 
         except Exception as e:
@@ -98,17 +96,18 @@ class EnhancedNewsRetriever:
             return news_df
         return self._filter.filter_news_enhanced(news_df, min_score=self.min_score)
 
-    def get_statistics(self, original_df: pd.DataFrame,
-                       filtered_df: pd.DataFrame) -> Dict:
+    def get_statistics(self, original_df: pd.DataFrame, filtered_df: pd.DataFrame) -> dict:
         """Get filtering statistics."""
-        score_col = 'final_score' if 'final_score' in filtered_df.columns else 'relevance_score'
+        score_col = "final_score" if "final_score" in filtered_df.columns else "relevance_score"
         stats = {
-            'original_count': len(original_df),
-            'filtered_count': len(filtered_df),
-            'filter_rate': (len(original_df) - len(filtered_df)) / len(original_df) * 100 if len(original_df) > 0 else 0,
-            'avg_score': filtered_df[score_col].mean() if not filtered_df.empty else 0,
-            'max_score': filtered_df[score_col].max() if not filtered_df.empty else 0,
-            'min_score': filtered_df[score_col].min() if not filtered_df.empty else 0,
+            "original_count": len(original_df),
+            "filtered_count": len(filtered_df),
+            "filter_rate": (len(original_df) - len(filtered_df)) / len(original_df) * 100
+            if len(original_df) > 0
+            else 0,
+            "avg_score": filtered_df[score_col].mean() if not filtered_df.empty else 0,
+            "max_score": filtered_df[score_col].max() if not filtered_df.empty else 0,
+            "min_score": filtered_df[score_col].min() if not filtered_df.empty else 0,
         }
         return stats
 

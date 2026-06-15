@@ -1,8 +1,9 @@
 """
 Base classes and shared typing for data source adapters
 """
+
 from abc import ABC, abstractmethod
-from typing import Optional, Dict
+
 import pandas as pd
 
 
@@ -10,7 +11,7 @@ class DataSourceAdapter(ABC):
     """数据源适配器基类"""
 
     def __init__(self):
-        self._priority: Optional[int] = None  # 动态优先级，从数据库加载
+        self._priority: int | None = None  # 动态优先级，从数据库加载
 
     @property
     @abstractmethod
@@ -37,29 +38,29 @@ class DataSourceAdapter(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_stock_list(self) -> Optional[pd.DataFrame]:
+    def get_stock_list(self) -> pd.DataFrame | None:
         """获取股票列表"""
         raise NotImplementedError
 
     @abstractmethod
-    def get_daily_basic(self, trade_date: str) -> Optional[pd.DataFrame]:
+    def get_daily_basic(self, trade_date: str) -> pd.DataFrame | None:
         """获取每日基础财务数据"""
         raise NotImplementedError
 
     @abstractmethod
-    def find_latest_trade_date(self) -> Optional[str]:
+    def find_latest_trade_date(self) -> str | None:
         """查找最新交易日期"""
         raise NotImplementedError
 
     # 新增：全市场实时快照（近实时价格/涨跌幅/成交额），键为6位代码
     @abstractmethod
-    def get_realtime_quotes(self) -> Optional[Dict[str, Dict[str, Optional[float]]]]:
+    def get_realtime_quotes(self) -> dict[str, dict[str, float | None]] | None:
         """返回 { '000001': {'close': 10.0, 'pct_chg': 1.2, 'amount': 1.2e8}, ... }"""
         raise NotImplementedError
 
     # 新增：K线与新闻抽象接口
     @abstractmethod
-    def get_kline(self, code: str, period: str = "day", limit: int = 120, adj: Optional[str] = None):
+    def get_kline(self, code: str, period: str = "day", limit: int = 120, adj: str | None = None):
         """获取K线，返回按时间正序的列表: [{time, open, high, low, close, volume, amount}]"""
         raise NotImplementedError
 

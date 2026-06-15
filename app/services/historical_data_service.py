@@ -3,12 +3,13 @@
 统一历史数据管理服务
 为三数据源提供统一的历史数据存储和查询接口
 """
+
 import asyncio
 import logging
-from datetime import datetime, date
-from typing import Dict, Any, List, Optional, Union
+from datetime import date, datetime
+from typing import Any
+
 import pandas as pd
-from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.database import get_database
 
@@ -17,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 class HistoricalDataService:
     """统一历史数据管理服务"""
-    
+
     def __init__(self):
         """初始化服务"""
         self.db = None
         self.collection = None
-        
+
     async def initialize(self):
         """初始化数据库连接"""
         try:
@@ -43,12 +44,12 @@ class HistoricalDataService:
             logger.info("📊 检查并创建历史数据索引...")
 
             # 1. 复合唯一索引：股票代码+交易日期+数据源+周期（用于 upsert）
-            await self.collection.create_index([
-                ("symbol", 1),
-                ("trade_date", 1),
-                ("data_source", 1),
-                ("period", 1)
-            ], unique=True, name="symbol_date_source_period_unique", background=True)
+            await self.collection.create_index(
+                [("symbol", 1), ("trade_date", 1), ("data_source", 1), ("period", 1)],
+                unique=True,
+                name="symbol_date_source_period_unique",
+                background=True,
+            )
 
             # 2. 股票代码索引（查询单只股票的历史数据）
             await self.collection.create_index([("symbol", 1)], name="symbol_index", background=True)
@@ -57,23 +58,17 @@ class HistoricalDataService:
             await self.collection.create_index([("trade_date", -1)], name="trade_date_index", background=True)
 
             # 4. 复合索引：股票代码+交易日期（常用查询）
-            await self.collection.create_index([
-                ("symbol", 1),
-                ("trade_date", -1)
-            ], name="symbol_date_index", background=True)
+            await self.collection.create_index(
+                [("symbol", 1), ("trade_date", -1)], name="symbol_date_index", background=True
+            )
 
             logger.info("✅ 历史数据索引检查完成")
         except Exception as e:
             # 索引创建失败不应该阻止服务启动
             logger.warning(f"⚠️ 创建索引时出现警告（可能已存在）: {e}")
-    
+
     async def save_historical_data(
-        self,
-        symbol: str,
-        data: pd.DataFrame,
-        data_source: str,
-        market: str = "CN",
-        period: str = "daily"
+        self, symbol: str, data: pd.DataFrame, data_source: str, market: str = "CN", period: str = "daily"
     ) -> int:
         """
         保存历史数据到数据库
@@ -90,13 +85,14 @@ class HistoricalDataService:
         """
         if self.collection is None:
             await self.initialize()
-        
+
         try:
             if data is None or data.empty:
                 logger.warning(f"⚠️ {symbol} 历史数据为空，跳过保存")
                 return 0
 
             from datetime import datetime
+
             total_start = datetime.now()
 
             logger.info(f"💾 开始保存 {symbol} 历史数据: {len(data)}条记录 (数据源: {data_source})")
@@ -106,21 +102,21 @@ class HistoricalDataService:
             # 🔥 在 DataFrame 层面做单位转换（向量化操作，比逐行快得多）
             if data_source == "tushare":
                 # 成交额：千元 -> 元
-                if 'amount' in data.columns:
-                    data['amount'] = data['amount'] * 1000
-                elif 'turnover' in data.columns:
-                    data['turnover'] = data['turnover'] * 1000
+                if "amount" in data.columns:
+                    data["amount"] = data["amount"] * 1000
+                elif "turnover" in data.columns:
+                    data["turnover"] = data["turnover"] * 1000
 
                 # 成交量：手 -> 股
-                if 'volume' in data.columns:
-                    data['volume'] = data['volume'] * 100
-                elif 'vol' in data.columns:
-                    data['vol'] = data['vol'] * 100
+                if "volume" in data.columns:
+                    data["volume"] = data["volume"] * 100
+                elif "vol" in data.columns:
+                    data["vol"] = data["vol"] * 100
 
             # 🔥 港股/美股数据：添加 pre_close 字段（从前一天的 close 获取）
-            if market in ["HK", "US"] and 'pre_close' not in data.columns and 'close' in data.columns:
+            if market in ["HK", "US"] and "pre_close" not in data.columns and "close" in data.columns:
                 # 使用 shift(1) 将 close 列向下移动一行，得到前一天的收盘价
-                data['pre_close'] = data['close'].shift(1)
+                data["pre_close"] = data["close"].shift(1)
                 logger.debug(f"✅ {symbol} 添加 pre_close 字段（从前一天的 close 获取）")
 
             convert_duration = (datetime.now() - convert_start).total_seconds()
@@ -142,15 +138,12 @@ class HistoricalDataService:
                         "symbol": doc["symbol"],
                         "trade_date": doc["trade_date"],
                         "data_source": doc["data_source"],
-                        "period": doc["period"]
+                        "period": doc["period"],
                     }
 
                     from pymongo import ReplaceOne
-                    operations.append(ReplaceOne(
-                        filter=filter_doc,
-                        replacement=doc,
-                        upsert=True
-                    ))
+
+                    operations.append(ReplaceOne(filter=filter_doc, replacement=doc, upsert=True))
 
                     # 批量执行（每200条）
                     if len(operations) >= batch_size:
@@ -163,7 +156,7 @@ class HistoricalDataService:
 
                 except Exception as e:
                     # 获取日期信息用于错误日志
-                    date_str = str(date_index) if hasattr(date_index, '__str__') else 'unknown'
+                    date_str = str(date_index) if hasattr(date_index, "__str__") else "unknown"
                     logger.error(f"❌ 处理记录失败 {symbol} {date_str}: {e}")
                     continue
 
@@ -173,9 +166,7 @@ class HistoricalDataService:
             final_write_start = datetime.now()
             # 执行剩余操作
             if operations:
-                saved_count += await self._execute_bulk_write_with_retry(
-                    symbol, operations
-                )
+                saved_count += await self._execute_bulk_write_with_retry(symbol, operations)
             final_write_duration = (datetime.now() - final_write_start).total_seconds()
 
             total_duration = (datetime.now() - total_start).total_seconds()
@@ -185,7 +176,7 @@ class HistoricalDataService:
                 f"(转换: {convert_duration:.3f}秒, 准备: {prepare_duration:.2f}秒, 最后写入: {final_write_duration:.2f}秒)"
             )
             return saved_count
-            
+
         except Exception as e:
             logger.error(f"❌ 保存历史数据失败 {symbol}: {e}")
             return 0
@@ -193,8 +184,8 @@ class HistoricalDataService:
     async def _execute_bulk_write_with_retry(
         self,
         symbol: str,
-        operations: List,
-        max_retries: int = 5  # 增加重试次数：从3次改为5次
+        operations: list,
+        max_retries: int = 5,  # 增加重试次数：从3次改为5次
     ) -> int:
         """
         执行批量写入，带重试机制
@@ -214,14 +205,18 @@ class HistoricalDataService:
             try:
                 result = await self.collection.bulk_write(operations, ordered=False)
                 saved_count = result.upserted_count + result.modified_count
-                logger.debug(f"✅ {symbol} 批量保存 {len(operations)} 条记录成功 (新增: {result.upserted_count}, 更新: {result.modified_count})")
+                logger.debug(
+                    f"✅ {symbol} 批量保存 {len(operations)} 条记录成功 (新增: {result.upserted_count}, 更新: {result.modified_count})"
+                )
                 return saved_count
 
             except asyncio.TimeoutError as e:
                 retry_count += 1
                 if retry_count < max_retries:
-                    wait_time = 3 ** retry_count  # 更长的指数退避：3秒、9秒、27秒、81秒
-                    logger.warning(f"⚠️ {symbol} 批量写入超时 (第{retry_count}/{max_retries}次重试)，等待{wait_time}秒后重试...")
+                    wait_time = 3**retry_count  # 更长的指数退避：3秒、9秒、27秒、81秒
+                    logger.warning(
+                        f"⚠️ {symbol} 批量写入超时 (第{retry_count}/{max_retries}次重试)，等待{wait_time}秒后重试..."
+                    )
                     await asyncio.sleep(wait_time)
                 else:
                     logger.error(f"❌ {symbol} 批量写入失败，已重试{max_retries}次: {e}")
@@ -230,11 +225,13 @@ class HistoricalDataService:
             except Exception as e:
                 # 检查是否是超时相关的错误
                 error_msg = str(e).lower()
-                if 'timeout' in error_msg or 'timed out' in error_msg:
+                if "timeout" in error_msg or "timed out" in error_msg:
                     retry_count += 1
                     if retry_count < max_retries:
-                        wait_time = 3 ** retry_count
-                        logger.warning(f"⚠️ {symbol} 批量写入超时 (第{retry_count}/{max_retries}次重试)，等待{wait_time}秒后重试... 错误: {e}")
+                        wait_time = 3**retry_count
+                        logger.warning(
+                            f"⚠️ {symbol} 批量写入超时 (第{retry_count}/{max_retries}次重试)，等待{wait_time}秒后重试... 错误: {e}"
+                        )
                         await asyncio.sleep(wait_time)
                     else:
                         logger.error(f"❌ {symbol} 批量写入失败，已重试{max_retries}次: {e}")
@@ -246,14 +243,8 @@ class HistoricalDataService:
         return saved_count
 
     def _standardize_record(
-        self,
-        symbol: str,
-        row: pd.Series,
-        data_source: str,
-        market: str,
-        period: str = "daily",
-        date_index = None
-    ) -> Dict[str, Any]:
+        self, symbol: str, row: pd.Series, data_source: str, market: str, period: str = "daily", date_index=None
+    ) -> dict[str, Any]:
         """标准化单条记录"""
         now = datetime.utcnow()
 
@@ -261,7 +252,7 @@ class HistoricalDataService:
         trade_date = None
 
         # 先尝试从列中获取日期
-        date_from_column = row.get('date') or row.get('trade_date')
+        date_from_column = row.get("date") or row.get("trade_date")
 
         # 如果列中有日期，优先使用列中的日期
         if date_from_column is not None:
@@ -284,55 +275,57 @@ class HistoricalDataService:
             "data_source": data_source,
             "created_at": now,
             "updated_at": now,
-            "version": 1
+            "version": 1,
         }
-        
-        # OHLCV数据（单位转换已在 DataFrame 层面完成）
-        amount_value = self._safe_float(row.get('amount') or row.get('turnover'))
-        volume_value = self._safe_float(row.get('volume') or row.get('vol'))
 
-        doc.update({
-            "open": self._safe_float(row.get('open')),
-            "high": self._safe_float(row.get('high')),
-            "low": self._safe_float(row.get('low')),
-            "close": self._safe_float(row.get('close')),
-            "pre_close": self._safe_float(row.get('pre_close') or row.get('preclose')),
-            "volume": volume_value,
-            "amount": amount_value
-        })
-        
+        # OHLCV数据（单位转换已在 DataFrame 层面完成）
+        amount_value = self._safe_float(row.get("amount") or row.get("turnover"))
+        volume_value = self._safe_float(row.get("volume") or row.get("vol"))
+
+        doc.update(
+            {
+                "open": self._safe_float(row.get("open")),
+                "high": self._safe_float(row.get("high")),
+                "low": self._safe_float(row.get("low")),
+                "close": self._safe_float(row.get("close")),
+                "pre_close": self._safe_float(row.get("pre_close") or row.get("preclose")),
+                "volume": volume_value,
+                "amount": amount_value,
+            }
+        )
+
         # 计算涨跌数据
         if doc["close"] and doc["pre_close"]:
             doc["change"] = round(doc["close"] - doc["pre_close"], 4)
             doc["pct_chg"] = round((doc["change"] / doc["pre_close"]) * 100, 4)
         else:
-            doc["change"] = self._safe_float(row.get('change'))
-            doc["pct_chg"] = self._safe_float(row.get('pct_chg') or row.get('change_percent'))
-        
+            doc["change"] = self._safe_float(row.get("change"))
+            doc["pct_chg"] = self._safe_float(row.get("pct_chg") or row.get("change_percent"))
+
         # 可选字段
         optional_fields = {
-            "turnover_rate": row.get('turnover_rate') or row.get('turn'),
-            "volume_ratio": row.get('volume_ratio'),
-            "pe": row.get('pe'),
-            "pb": row.get('pb'),
-            "ps": row.get('ps'),
-            "adjustflag": row.get('adjustflag') or row.get('adj_factor'),
-            "tradestatus": row.get('tradestatus'),
-            "isST": row.get('isST')
+            "turnover_rate": row.get("turnover_rate") or row.get("turn"),
+            "volume_ratio": row.get("volume_ratio"),
+            "pe": row.get("pe"),
+            "pb": row.get("pb"),
+            "ps": row.get("ps"),
+            "adjustflag": row.get("adjustflag") or row.get("adj_factor"),
+            "tradestatus": row.get("tradestatus"),
+            "isST": row.get("isST"),
         }
-        
+
         for key, value in optional_fields.items():
             if value is not None:
                 doc[key] = self._safe_float(value)
-        
+
         return doc
-    
+
     def _get_full_symbol(self, symbol: str, market: str) -> str:
         """生成完整股票代码"""
         if market == "CN":
-            if symbol.startswith('6'):
+            if symbol.startswith("6"):
                 return f"{symbol}.SH"
-            elif symbol.startswith(('0', '3')):
+            elif symbol.startswith(("0", "3")):
                 return f"{symbol}.SZ"
             else:
                 return f"{symbol}.SZ"  # 默认深圳
@@ -342,12 +335,12 @@ class HistoricalDataService:
             return symbol
         else:
             return symbol
-    
+
     def _format_date(self, date_value) -> str:
         """格式化日期"""
         if date_value is None:
-            return datetime.now().strftime('%Y-%m-%d')
-        
+            return datetime.now().strftime("%Y-%m-%d")
+
         if isinstance(date_value, str):
             # 处理不同的日期格式
             if len(date_value) == 8:  # YYYYMMDD
@@ -357,19 +350,19 @@ class HistoricalDataService:
             else:
                 return date_value
         elif isinstance(date_value, (date, datetime)):
-            return date_value.strftime('%Y-%m-%d')
+            return date_value.strftime("%Y-%m-%d")
         else:
             return str(date_value)
-    
-    def _safe_float(self, value) -> Optional[float]:
+
+    def _safe_float(self, value) -> float | None:
         """安全转换为浮点数"""
-        if value is None or value == '' or pd.isna(value):
+        if value is None or value == "" or pd.isna(value):
             return None
         try:
             return float(value)
         except (ValueError, TypeError):
             return None
-    
+
     async def get_historical_data(
         self,
         symbol: str,
@@ -377,8 +370,8 @@ class HistoricalDataService:
         end_date: str = None,
         data_source: str = None,
         period: str = None,
-        limit: int = None
-    ) -> List[Dict[str, Any]]:
+        limit: int = None,
+    ) -> list[dict[str, Any]]:
         """
         查询历史数据
 
@@ -395,11 +388,11 @@ class HistoricalDataService:
         """
         if self.collection is None:
             await self.initialize()
-        
+
         try:
             # 构建查询条件
             query = {"symbol": symbol}
-            
+
             if start_date or end_date:
                 date_filter = {}
                 if start_date:
@@ -407,87 +400,79 @@ class HistoricalDataService:
                 if end_date:
                     date_filter["$lte"] = end_date
                 query["trade_date"] = date_filter
-            
+
             if data_source:
                 query["data_source"] = data_source
 
             if period:
                 query["period"] = period
-            
+
             # 执行查询
             cursor = self.collection.find(query).sort("trade_date", -1)
-            
+
             if limit:
                 cursor = cursor.limit(limit)
-            
+
             results = await cursor.to_list(length=None)
-            
+
             logger.info(f"📊 查询历史数据: {symbol} 返回 {len(results)} 条记录")
             return results
-            
+
         except Exception as e:
             logger.error(f"❌ 查询历史数据失败 {symbol}: {e}")
             return []
-    
-    async def get_latest_date(self, symbol: str, data_source: str) -> Optional[str]:
+
+    async def get_latest_date(self, symbol: str, data_source: str) -> str | None:
         """获取最新数据日期"""
         if self.collection is None:
             await self.initialize()
-        
+
         try:
             result = await self.collection.find_one(
-                {"symbol": symbol, "data_source": data_source},
-                sort=[("trade_date", -1)]
+                {"symbol": symbol, "data_source": data_source}, sort=[("trade_date", -1)]
             )
-            
+
             if result:
                 return result["trade_date"]
             return None
-            
+
         except Exception as e:
             logger.error(f"❌ 获取最新日期失败 {symbol}: {e}")
             return None
-    
-    async def get_data_statistics(self) -> Dict[str, Any]:
+
+    async def get_data_statistics(self) -> dict[str, Any]:
         """获取数据统计信息"""
         if self.collection is None:
             await self.initialize()
-        
+
         try:
             # 总记录数
             total_count = await self.collection.count_documents({})
-            
+
             # 按数据源统计
-            source_stats = await self.collection.aggregate([
-                {"$group": {
-                    "_id": "$data_source",
-                    "count": {"$sum": 1},
-                    "latest_date": {"$max": "$trade_date"}
-                }}
-            ]).to_list(length=None)
-            
+            source_stats = await self.collection.aggregate(
+                [{"$group": {"_id": "$data_source", "count": {"$sum": 1}, "latest_date": {"$max": "$trade_date"}}}]
+            ).to_list(length=None)
+
             # 按市场统计
-            market_stats = await self.collection.aggregate([
-                {"$group": {
-                    "_id": "$market",
-                    "count": {"$sum": 1}
-                }}
-            ]).to_list(length=None)
-            
+            market_stats = await self.collection.aggregate(
+                [{"$group": {"_id": "$market", "count": {"$sum": 1}}}]
+            ).to_list(length=None)
+
             # 股票数量统计
             symbol_count = len(await self.collection.distinct("symbol"))
-            
+
             return {
                 "total_records": total_count,
                 "total_symbols": symbol_count,
-                "by_source": {item["_id"]: {
-                    "count": item["count"],
-                    "latest_date": item.get("latest_date")
-                } for item in source_stats},
+                "by_source": {
+                    item["_id"]: {"count": item["count"], "latest_date": item.get("latest_date")}
+                    for item in source_stats
+                },
                 "by_market": {item["_id"]: item["count"] for item in market_stats},
-                "last_updated": datetime.utcnow().isoformat()
+                "last_updated": datetime.utcnow().isoformat(),
             }
-            
+
         except Exception as e:
             logger.error(f"❌ 获取统计信息失败: {e}")
             return {}

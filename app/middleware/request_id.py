@@ -4,14 +4,15 @@
 - 将 trace_id 写入 logging 的 contextvars，使所有日志自动带出
 """
 
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-import uuid
-import time
 import logging
+import time
+import uuid
 from typing import Callable
 
-from app.core.logging_context import trace_id_var, set_request_context, clear_request_context
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from app.core.logging_context import clear_request_context, set_request_context, trace_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         # 记录请求信息 (structured via extra fields)
         logger.info(
-            "request_started",
-            extra={"method": request.method, "path": request.url.path, "client_ip": client_ip}
+            "request_started", extra={"method": request.method, "path": request.url.path, "client_ip": client_ip}
         )
 
         try:
@@ -58,14 +58,20 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
             response.headers["X-Process-Time"] = f"{process_time:.3f}"
 
             # 记录请求完成信息
-            status_class = "success" if response.status_code < 400 else "client_error" if response.status_code < 500 else "server_error"
+            status_class = (
+                "success"
+                if response.status_code < 400
+                else "client_error"
+                if response.status_code < 500
+                else "server_error"
+            )
             logger.info(
                 "request_completed",
                 extra={
                     "status_code": response.status_code,
                     "status_class": status_class,
                     "duration_s": round(process_time, 3),
-                }
+                },
             )
 
             return response
@@ -76,9 +82,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
             # 记录请求异常信息
             logger.error(
-                "request_failed",
-                extra={"duration_s": round(process_time, 3), "error": str(exc)},
-                exc_info=True
+                "request_failed", extra={"duration_s": round(process_time, 3), "error": str(exc)}, exc_info=True
             )
             raise
 

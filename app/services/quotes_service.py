@@ -3,17 +3,17 @@ QuotesService: 提供A股批量实时快照获取（AKShare东方财富 spot 接
 - 不使用通达信（TDX）作为兜底数据源。
 - 仅用于筛选返回前对 items 进行行情富集。
 """
+
 from __future__ import annotations
 
 import asyncio
-import time
 import logging
-from typing import Dict, List, Optional
+import time
 
 logger = logging.getLogger(__name__)
 
 
-def _safe_float(v) -> Optional[float]:
+def _safe_float(v) -> float | None:
     try:
         if v is None:
             return None
@@ -35,10 +35,10 @@ class QuotesService:
     def __init__(self, ttl_seconds: int = 30) -> None:
         self._ttl = ttl_seconds
         self._cache_ts: float = 0.0
-        self._cache: Dict[str, Dict[str, Optional[float]]] = {}
+        self._cache: dict[str, dict[str, float | None]] = {}
         self._lock = asyncio.Lock()
 
-    async def get_quotes(self, codes: List[str]) -> Dict[str, Dict[str, Optional[float]]]:
+    async def get_quotes(self, codes: list[str]) -> dict[str, dict[str, float | None]]:
         """获取一批股票的近实时快照（最新价、涨跌幅、成交额）。
         - 优先使用缓存；缓存超时或为空则刷新一次全市场快照。
         - 返回仅包含请求的 codes。
@@ -54,13 +54,14 @@ class QuotesService:
             self._cache_ts = time.time()
             return {c: q for c, q in self._cache.items() if c in codes and q}
 
-    def _fetch_spot_akshare(self) -> Dict[str, Dict[str, Optional[float]]]:
+    def _fetch_spot_akshare(self) -> dict[str, dict[str, float | None]]:
         """通过 AKShare 东方财富全市场快照接口拉取行情，并标准化为字典。
         预期列（常见）：代码、名称、最新价、涨跌幅、成交额。
         不同版本可能有差异，做多列名兼容。
         """
         try:
             import akshare as ak  # 已在项目中使用，不额外安装
+
             df = ak.stock_zh_a_spot_em()
             if df is None or getattr(df, "empty", True):
                 logger.warning("AKShare spot 返回空数据")
@@ -75,7 +76,7 @@ class QuotesService:
                 logger.error(f"AKShare spot 缺少必要列: code={code_col}, price={price_col}")
                 return {}
 
-            result: Dict[str, Dict[str, Optional[float]]] = {}
+            result: dict[str, dict[str, float | None]] = {}
             for _, row in df.iterrows():  # type: ignore
                 code_raw = row.get(code_col)
                 if not code_raw:
@@ -84,7 +85,7 @@ class QuotesService:
                 code_str = str(code_raw).strip()
                 # 如果是纯数字，移除前导0后补齐到6位
                 if code_str.isdigit():
-                    code_clean = code_str.lstrip('0') or '0'  # 移除前导0，如果全是0则保留一个0
+                    code_clean = code_str.lstrip("0") or "0"  # 移除前导0，如果全是0则保留一个0
                     code = code_clean.zfill(6)  # 补齐到6位
                 else:
                     code = code_str.zfill(6)
@@ -100,7 +101,7 @@ class QuotesService:
             return {}
 
 
-_quotes_service: Optional[QuotesService] = None
+_quotes_service: QuotesService | None = None
 
 
 def get_quotes_service() -> QuotesService:
@@ -108,4 +109,3 @@ def get_quotes_service() -> QuotesService:
     if _quotes_service is None:
         _quotes_service = QuotesService(ttl_seconds=30)
     return _quotes_service
-

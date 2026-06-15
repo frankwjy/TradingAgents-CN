@@ -7,7 +7,7 @@
 import json
 from typing import Dict, List, Optional
 
-_DEFAULT_CONFIG: Dict = {
+_DEFAULT_CONFIG: dict = {
     "AAPL": {"en": "Apple", "zh": "苹果公司", "keywords": ["apple", "iphone", "ipad", "mac"]},
     "MSFT": {"en": "Microsoft", "zh": "微软", "keywords": ["microsoft", "windows", "azure"]},
     "GOOGL": {"en": "Google", "zh": "谷歌", "keywords": ["google", "alphabet", "search"]},
@@ -49,24 +49,52 @@ _DEFAULT_CONFIG: Dict = {
     # Major Index ETFs
     "SPY": {"en": "SPDR S&P 500 ETF Trust", "zh": "标普500 ETF", "keywords": ["spy", "spdr", "s&p 500", "sp500"]},
     "QQQ": {"en": "Invesco QQQ Trust", "zh": "纳斯达克100 ETF", "keywords": ["qqq", "nasdaq 100", "invesco"]},
-    "DIA": {"en": "SPDR Dow Jones Industrial Average ETF", "zh": "道琼斯 ETF", "keywords": ["dia", "dow jones", "djia"]},
+    "DIA": {
+        "en": "SPDR Dow Jones Industrial Average ETF",
+        "zh": "道琼斯 ETF",
+        "keywords": ["dia", "dow jones", "djia"],
+    },
     "IWM": {"en": "iShares Russell 2000 ETF", "zh": "罗素2000 ETF", "keywords": ["iwm", "russell 2000", "ishares"]},
-    "VTI": {"en": "Vanguard Total Stock Market ETF", "zh": "全股市 ETF", "keywords": ["vti", "vanguard", "total stock market"]},
+    "VTI": {
+        "en": "Vanguard Total Stock Market ETF",
+        "zh": "全股市 ETF",
+        "keywords": ["vti", "vanguard", "total stock market"],
+    },
     "VO": {"en": "Vanguard Mid-Cap ETF", "zh": "中盘股 ETF", "keywords": ["vo", "vanguard", "mid-cap"]},
     "VB": {"en": "Vanguard Small-Cap ETF", "zh": "小盘股 ETF", "keywords": ["vb", "vanguard", "small-cap"]},
-    "VGT": {"en": "Vanguard Information Technology ETF", "zh": "信息技术 ETF", "keywords": ["vgt", "vanguard", "information technology"]},
+    "VGT": {
+        "en": "Vanguard Information Technology ETF",
+        "zh": "信息技术 ETF",
+        "keywords": ["vgt", "vanguard", "information technology"],
+    },
     "XLF": {"en": "Financial Select Sector SPDR Fund", "zh": "金融板块 ETF", "keywords": ["xlf", "financial", "spdr"]},
     "XLE": {"en": "Energy Select Sector SPDR Fund", "zh": "能源板块 ETF", "keywords": ["xle", "energy", "spdr"]},
-    "XLK": {"en": "Technology Select Sector SPDR Fund", "zh": "科技板块 ETF", "keywords": ["xlk", "technology", "spdr"]},
-    "XLV": {"en": "Health Care Select Sector SPDR Fund", "zh": "医疗保健 ETF", "keywords": ["xlv", "health care", "spdr"]},
+    "XLK": {
+        "en": "Technology Select Sector SPDR Fund",
+        "zh": "科技板块 ETF",
+        "keywords": ["xlk", "technology", "spdr"],
+    },
+    "XLV": {
+        "en": "Health Care Select Sector SPDR Fund",
+        "zh": "医疗保健 ETF",
+        "keywords": ["xlv", "health care", "spdr"],
+    },
     "ARKK": {"en": "ARK Innovation ETF", "zh": "ARK创新 ETF", "keywords": ["arkk", "ark", "innovation", "cathie wood"]},
     "SOXX": {"en": "iShares Semiconductor ETF", "zh": "半导体 ETF", "keywords": ["soxx", "semiconductor", "ishares"]},
     "IBB": {"en": "iShares Biotechnology ETF", "zh": "生物科技 ETF", "keywords": ["ibb", "biotechnology", "ishares"]},
     "GLD": {"en": "SPDR Gold Shares", "zh": "黄金 ETF", "keywords": ["gld", "gold", "spdr"]},
     "SLV": {"en": "iShares Silver Trust", "zh": "白银 ETF", "keywords": ["slv", "silver", "ishares"]},
     "USO": {"en": "United States Oil Fund", "zh": "石油 ETF", "keywords": ["uso", "oil", "crude"]},
-    "TLT": {"en": "iShares 20+ Year Treasury Bond ETF", "zh": "长期国债 ETF", "keywords": ["tlt", "treasury", "bond", "20 year"]},
-    "QQQM": {"en": "Invesco NASDAQ 100 ETF", "zh": "纳斯达克100 ETF (低成本)", "keywords": ["qqqm", "nasdaq 100", "invesco", "low cost"]},
+    "TLT": {
+        "en": "iShares 20+ Year Treasury Bond ETF",
+        "zh": "长期国债 ETF",
+        "keywords": ["tlt", "treasury", "bond", "20 year"],
+    },
+    "QQQM": {
+        "en": "Invesco NASDAQ 100 ETF",
+        "zh": "纳斯达克100 ETF (低成本)",
+        "keywords": ["qqqm", "nasdaq 100", "invesco", "low cost"],
+    },
     # NASDAQ 100 Components
     "GOOG": {"en": "Alphabet Inc. (Class C)", "zh": "谷歌(无投票权)", "keywords": ["google", "alphabet", "goog"]},
     "COST": {"en": "Costco", "zh": "好市多", "keywords": ["costco", "wholesale"]},
@@ -109,7 +137,11 @@ _DEFAULT_CONFIG: Dict = {
     "ALGN": {"en": "Align Technology", "zh": "隐适美", "keywords": ["align", "invisalign"]},
     "SIRI": {"en": "Sirius XM", "zh": "天狼星XM", "keywords": ["sirius", "satellite radio"]},
     "VRSK": {"en": "Verisk Analytics", "zh": "韦睿司", "keywords": ["verisk", "analytics"]},
-    "CCEP": {"en": "Coca-Cola Europacific Partners", "zh": "可口可乐欧洲太平洋", "keywords": ["coca-cola", "coke", "bottler"]},
+    "CCEP": {
+        "en": "Coca-Cola Europacific Partners",
+        "zh": "可口可乐欧洲太平洋",
+        "keywords": ["coca-cola", "coke", "bottler"],
+    },
     "CPRT": {"en": "Copart", "zh": "科帕特", "keywords": ["copart", "auto auction"]},
     "MCHP": {"en": "Microchip Technology", "zh": "微芯科技", "keywords": ["microchip", "mcu"]},
     "TTD": {"en": "The Trade Desk", "zh": "广告达人", "keywords": ["trade desk", "adtech"]},
@@ -486,32 +518,31 @@ _DEFAULT_CONFIG: Dict = {
     "PXD": {"en": "Pioneer Natural Resources", "zh": "先锋自然资源", "keywords": ["pioneer", "oil"]},
     "HES": {"en": "Hess", "zh": "赫斯", "keywords": ["hess", "oil"]},
     "MRO": {"en": "Marathon Oil", "zh": "马拉松石油", "keywords": ["marathon oil"]},
-    "APA": {"en": "APA Corporation", "zh": "APA公司", "keywords": ["apa", "oil"]}
-
+    "APA": {"en": "APA Corporation", "zh": "APA公司", "keywords": ["apa", "oil"]},
 }
 
-_config: Optional[Dict] = None
+_config: dict | None = None
 
 
-def _load_config() -> Dict:
+def _load_config() -> dict:
     global _config
     if _config is not None:
         return _config
     return _DEFAULT_CONFIG
 
 
-def reload_config(config_path: Optional[str] = None) -> Dict:
+def reload_config(config_path: str | None = None) -> dict:
     """从外部 JSON 文件加载配置以覆盖默认值；传 None 则恢复默认。"""
     global _config
     if config_path is None:
         _config = None
         return _DEFAULT_CONFIG
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         _config = json.load(f)
     return _config
 
 
-def get_company_name_en(ticker: str, fallback: Optional[str] = None) -> str:
+def get_company_name_en(ticker: str, fallback: str | None = None) -> str:
     """获取美股公司英文名称。"""
     config = _load_config()
     entry = config.get(ticker.upper())
@@ -520,7 +551,7 @@ def get_company_name_en(ticker: str, fallback: Optional[str] = None) -> str:
     return fallback if fallback is not None else f"US:{ticker}"
 
 
-def get_company_name_zh(ticker: str, fallback: Optional[str] = None) -> str:
+def get_company_name_zh(ticker: str, fallback: str | None = None) -> str:
     """获取美股公司中文名称。"""
     config = _load_config()
     entry = config.get(ticker.upper())
@@ -529,7 +560,7 @@ def get_company_name_zh(ticker: str, fallback: Optional[str] = None) -> str:
     return fallback if fallback is not None else f"美股{ticker}"
 
 
-def get_search_keywords(ticker: str) -> List[str]:
+def get_search_keywords(ticker: str) -> list[str]:
     """获取股票代码对应的搜索关键词列表（用于新闻相关性匹配）。"""
     config = _load_config()
     entry = config.get(ticker.upper()) or config.get(ticker.lower())
@@ -550,12 +581,12 @@ def get_search_string(ticker: str) -> str:
     return ticker
 
 
-def get_all_tickers() -> List[str]:
+def get_all_tickers() -> list[str]:
     """获取所有已配置的股票代码列表。"""
     return list(_load_config().keys())
 
 
-def get_keywords_map(ticker: str) -> Dict[str, List[str]]:
+def get_keywords_map(ticker: str) -> dict[str, list[str]]:
     """获取小写 ticker -> 关键词列表的映射。"""
     config = _load_config()
     entry = config.get(ticker.upper())

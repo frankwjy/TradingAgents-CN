@@ -1,5 +1,5 @@
-from importlib import reload
 import logging
+from importlib import reload
 
 
 def test_json_console_formatter_enabled(monkeypatch, tmp_path):
@@ -22,6 +22,7 @@ json = true
 
     # Import module fresh
     from app.core import logging_config as lc
+
     reload(lc)
 
     # Act
@@ -34,4 +35,3 @@ json = true
     assert console_handlers, "no console handler found"
     formatter_names = {h.formatter.__class__.__name__ for h in console_handlers if h.formatter}
     assert "SimpleJsonFormatter" in formatter_names
-

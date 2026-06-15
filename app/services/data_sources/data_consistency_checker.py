@@ -3,9 +3,12 @@ Minimal stub for DataConsistencyChecker
 - Purpose: eliminate warning and provide no-op consistency checking
 - Behavior: always mark data as consistent and prefer primary source
 """
+
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any
+
 import pandas as pd
 
 
@@ -14,7 +17,7 @@ class DataConsistencyResult:
     is_consistent: bool = True
     confidence_score: float = 1.0
     recommended_action: str = "use_primary"
-    differences: List[Dict[str, Any]] = None
+    differences: list[dict[str, Any]] = None
 
     def __post_init__(self):
         if self.differences is None:
@@ -42,7 +45,6 @@ class DataConsistencyChecker:
         primary: pd.DataFrame,
         secondary: pd.DataFrame,
         result: DataConsistencyResult,
-    ) -> Tuple[pd.DataFrame, str]:
+    ) -> tuple[pd.DataFrame, str]:
         # Always choose primary data
         return primary, "use_primary"
-

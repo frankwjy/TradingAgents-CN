@@ -2,22 +2,25 @@
 统一重试机制模块
 提供可复用的重试装饰器，支持指数退避和反爬虫检测
 """
+
 import asyncio
 import functools
 import logging
 import random
 import time
-from typing import Callable, TypeVar, Any, Optional, Tuple, Type
+from typing import Any, Callable, Optional, Tuple, Type, TypeVar
+
 from .anti_crawl import AntiCrawlDetector, AntiCrawlStatus
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class RetryExhaustedError(Exception):
     """重试次数耗尽异常"""
-    def __init__(self, message: str, last_exception: Optional[Exception] = None):
+
+    def __init__(self, message: str, last_exception: Exception | None = None):
         super().__init__(message)
         self.last_exception = last_exception
 
@@ -28,12 +31,12 @@ def retry_on_failure(
     max_delay: float = 30.0,
     exponential_base: float = 2.0,
     jitter: bool = True,
-    retryable_exceptions: Tuple[Type[Exception], ...] = (Exception,),
-    retryable_statuses: Tuple[AntiCrawlStatus, ...] = (
+    retryable_exceptions: tuple[type[Exception], ...] = (Exception,),
+    retryable_statuses: tuple[AntiCrawlStatus, ...] = (
         AntiCrawlStatus.RATE_LIMITED,
         AntiCrawlStatus.BLOCKED,
     ),
-    on_retry: Optional[Callable[[int, Exception, float], None]] = None,
+    on_retry: Callable[[int, Exception, float], None] | None = None,
 ) -> Callable:
     """
     重试装饰器（同步版本）
@@ -51,6 +54,7 @@ def retry_on_failure(
     Returns:
         装饰器函数
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> T:
@@ -64,8 +68,7 @@ def retry_on_failure(
                     if detection.status in retryable_statuses:
                         if attempt < max_retries:
                             delay = _calculate_delay(
-                                attempt, base_delay, max_delay,
-                                exponential_base, jitter, detection.retry_after
+                                attempt, base_delay, max_delay, exponential_base, jitter, detection.retry_after
                             )
                             logger.warning(
                                 f"⚠️ {func.__name__} 检测到反爬虫: {detection.message}, "
@@ -76,9 +79,7 @@ def retry_on_failure(
                             time.sleep(delay)
                             continue
                         else:
-                            logger.error(
-                                f"❌ {func.__name__} 重试次数耗尽: {detection.message}"
-                            )
+                            logger.error(f"❌ {func.__name__} 重试次数耗尽: {detection.message}")
                             return result
 
                     return result
@@ -91,28 +92,24 @@ def retry_on_failure(
 
                     if attempt < max_retries:
                         delay = _calculate_delay(
-                            attempt, base_delay, max_delay,
-                            exponential_base, jitter, detection.retry_after
+                            attempt, base_delay, max_delay, exponential_base, jitter, detection.retry_after
                         )
                         logger.warning(
-                            f"⚠️ {func.__name__} 失败: {e}, "
-                            f"{delay:.1f}秒后重试 (尝试 {attempt + 1}/{max_retries})"
+                            f"⚠️ {func.__name__} 失败: {e}, {delay:.1f}秒后重试 (尝试 {attempt + 1}/{max_retries})"
                         )
                         if on_retry:
                             on_retry(attempt, e, delay)
                         time.sleep(delay)
                     else:
-                        logger.error(
-                            f"❌ {func.__name__} 重试次数耗尽: {e}"
-                        )
+                        logger.error(f"❌ {func.__name__} 重试次数耗尽: {e}")
                         raise RetryExhaustedError(
-                            f"{func.__name__} 在{max_retries}次重试后仍然失败",
-                            last_exception=e
+                            f"{func.__name__} 在{max_retries}次重试后仍然失败", last_exception=e
                         ) from e
 
             return result
 
         return wrapper
+
     return decorator
 
 
@@ -122,12 +119,12 @@ def async_retry_on_failure(
     max_delay: float = 30.0,
     exponential_base: float = 2.0,
     jitter: bool = True,
-    retryable_exceptions: Tuple[Type[Exception], ...] = (Exception,),
-    retryable_statuses: Tuple[AntiCrawlStatus, ...] = (
+    retryable_exceptions: tuple[type[Exception], ...] = (Exception,),
+    retryable_statuses: tuple[AntiCrawlStatus, ...] = (
         AntiCrawlStatus.RATE_LIMITED,
         AntiCrawlStatus.BLOCKED,
     ),
-    on_retry: Optional[Callable[[int, Exception, float], None]] = None,
+    on_retry: Callable[[int, Exception, float], None] | None = None,
 ) -> Callable:
     """
     重试装饰器（异步版本）
@@ -145,6 +142,7 @@ def async_retry_on_failure(
     Returns:
         装饰器函数
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs) -> T:
@@ -158,8 +156,7 @@ def async_retry_on_failure(
                     if detection.status in retryable_statuses:
                         if attempt < max_retries:
                             delay = _calculate_delay(
-                                attempt, base_delay, max_delay,
-                                exponential_base, jitter, detection.retry_after
+                                attempt, base_delay, max_delay, exponential_base, jitter, detection.retry_after
                             )
                             logger.warning(
                                 f"⚠️ {func.__name__} 检测到反爬虫: {detection.message}, "
@@ -170,9 +167,7 @@ def async_retry_on_failure(
                             await asyncio.sleep(delay)
                             continue
                         else:
-                            logger.error(
-                                f"❌ {func.__name__} 重试次数耗尽: {detection.message}"
-                            )
+                            logger.error(f"❌ {func.__name__} 重试次数耗尽: {detection.message}")
                             return result
 
                     return result
@@ -185,28 +180,24 @@ def async_retry_on_failure(
 
                     if attempt < max_retries:
                         delay = _calculate_delay(
-                            attempt, base_delay, max_delay,
-                            exponential_base, jitter, detection.retry_after
+                            attempt, base_delay, max_delay, exponential_base, jitter, detection.retry_after
                         )
                         logger.warning(
-                            f"⚠️ {func.__name__} 失败: {e}, "
-                            f"{delay:.1f}秒后重试 (尝试 {attempt + 1}/{max_retries})"
+                            f"⚠️ {func.__name__} 失败: {e}, {delay:.1f}秒后重试 (尝试 {attempt + 1}/{max_retries})"
                         )
                         if on_retry:
                             on_retry(attempt, e, delay)
                         await asyncio.sleep(delay)
                     else:
-                        logger.error(
-                            f"❌ {func.__name__} 重试次数耗尽: {e}"
-                        )
+                        logger.error(f"❌ {func.__name__} 重试次数耗尽: {e}")
                         raise RetryExhaustedError(
-                            f"{func.__name__} 在{max_retries}次重试后仍然失败",
-                            last_exception=e
+                            f"{func.__name__} 在{max_retries}次重试后仍然失败", last_exception=e
                         ) from e
 
             return result
 
         return wrapper
+
     return decorator
 
 
@@ -216,7 +207,7 @@ def _calculate_delay(
     max_delay: float,
     exponential_base: float,
     jitter: bool,
-    suggested_delay: Optional[float] = None,
+    suggested_delay: float | None = None,
 ) -> float:
     """
     计算延迟时间
@@ -237,7 +228,7 @@ def _calculate_delay(
         delay = suggested_delay
     else:
         # 指数退避
-        delay = base_delay * (exponential_base ** attempt)
+        delay = base_delay * (exponential_base**attempt)
 
     # 添加随机抖动
     if jitter:
@@ -267,7 +258,7 @@ class RetryConfig:
         self.exponential_base = exponential_base
         self.jitter = jitter
 
-    def get_delay(self, attempt: int, suggested_delay: Optional[float] = None) -> float:
+    def get_delay(self, attempt: int, suggested_delay: float | None = None) -> float:
         """计算指定尝试次数的延迟时间"""
         return _calculate_delay(
             attempt,

@@ -2,14 +2,16 @@
 Multi-source synchronization API routes
 Provides endpoints for multi-source stock data synchronization
 """
+
 import asyncio
 import logging
-from typing import Dict, List, Optional, Any, Union
+from typing import Any
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from app.services.multi_source_basics_sync_service import get_multi_source_sync_service
 from app.services.data_sources.manager import DataSourceManager
+from app.services.multi_source_basics_sync_service import get_multi_source_sync_service
 
 logger = logging.getLogger(__name__)
 
@@ -18,19 +20,22 @@ router = APIRouter(prefix="/api/sync/multi-source", tags=["Multi-Source Sync"])
 
 class SyncRequest(BaseModel):
     """同步请求模型"""
+
     force: bool = False
-    preferred_sources: Optional[List[str]] = None
+    preferred_sources: list[str] | None = None
 
 
 class SyncResponse(BaseModel):
     """同步响应模型"""
+
     success: bool
     message: str
-    data: Union[Dict[str, Any], List[Any], Any]
+    data: dict[str, Any] | list[Any] | Any
 
 
 class DataSourceStatus(BaseModel):
     """数据源状态模型"""
+
     name: str
     priority: int
     available: bool
@@ -53,33 +58,29 @@ async def get_data_sources_status():
             descriptions = {
                 "tushare": "专业金融数据API，提供高质量的A股数据和财务指标",
                 "akshare": "开源金融数据库，提供基础的股票信息",
-                "baostock": "免费开源的证券数据平台，提供历史数据"
+                "baostock": "免费开源的证券数据平台，提供历史数据",
             }
 
             status_item = {
                 "name": adapter.name,
                 "priority": adapter.priority,
                 "available": is_available,
-                "description": descriptions.get(adapter.name, f"{adapter.name}数据源")
+                "description": descriptions.get(adapter.name, f"{adapter.name}数据源"),
             }
 
             # 添加 Token 来源信息（仅 Tushare）
-            if adapter.name == "tushare" and is_available and hasattr(adapter, 'get_token_source'):
+            if adapter.name == "tushare" and is_available and hasattr(adapter, "get_token_source"):
                 token_source = adapter.get_token_source()
                 if token_source:
                     status_item["token_source"] = token_source
-                    if token_source == 'database':
+                    if token_source == "database":
                         status_item["description"] += " (Token来源: 数据库)"
-                    elif token_source == 'env':
+                    elif token_source == "env":
                         status_item["description"] += " (Token来源: .env)"
 
             status_list.append(status_item)
 
-        return SyncResponse(
-            success=True,
-            message="Data sources status retrieved successfully",
-            data=status_list
-        )
+        return SyncResponse(success=True, message="Data sources status retrieved successfully", data=status_list)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get data sources status: {str(e)}")
@@ -94,42 +95,32 @@ async def get_current_data_source():
 
         if not available_adapters:
             return SyncResponse(
-                success=False,
-                message="No available data sources",
-                data={"name": None, "priority": None}
+                success=False, message="No available data sources", data={"name": None, "priority": None}
             )
 
         # 获取优先级最高的可用数据源（优先级数字越大越高）
         current_adapter = max(available_adapters, key=lambda x: x.priority)
 
         # 根据数据源类型提供描述
-        descriptions = {
-            "tushare": "专业金融数据API",
-            "akshare": "开源金融数据库",
-            "baostock": "免费证券数据平台"
-        }
+        descriptions = {"tushare": "专业金融数据API", "akshare": "开源金融数据库", "baostock": "免费证券数据平台"}
 
         result = {
             "name": current_adapter.name,
             "priority": current_adapter.priority,
-            "description": descriptions.get(current_adapter.name, current_adapter.name)
+            "description": descriptions.get(current_adapter.name, current_adapter.name),
         }
 
         # 添加 Token 来源信息（仅 Tushare）
-        if current_adapter.name == "tushare" and hasattr(current_adapter, 'get_token_source'):
+        if current_adapter.name == "tushare" and hasattr(current_adapter, "get_token_source"):
             token_source = current_adapter.get_token_source()
             if token_source:
                 result["token_source"] = token_source
-                if token_source == 'database':
+                if token_source == "database":
                     result["token_source_display"] = "数据库配置"
-                elif token_source == 'env':
+                elif token_source == "env":
                     result["token_source_display"] = ".env 配置"
 
-        return SyncResponse(
-            success=True,
-            message="Current data source retrieved successfully",
-            data=result
-        )
+        return SyncResponse(success=True, message="Current data source retrieved successfully", data=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get current data source: {str(e)}")
 
@@ -140,13 +131,9 @@ async def get_sync_status():
     try:
         service = get_multi_source_sync_service()
         status = await service.get_status()
-        
-        return SyncResponse(
-            success=True,
-            message="Status retrieved successfully",
-            data=status
-        )
-        
+
+        return SyncResponse(success=True, message="Status retrieved successfully", data=status)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get sync status: {str(e)}")
 
@@ -154,7 +141,7 @@ async def get_sync_status():
 @router.post("/stock_basics/run")
 async def run_stock_basics_sync(
     force: bool = Query(False, description="是否强制运行同步"),
-    preferred_sources: Optional[str] = Query(None, description="优先使用的数据源，用逗号分隔")
+    preferred_sources: str | None = Query(None, description="优先使用的数据源，用逗号分隔"),
 ):
     """运行多数据源股票基础信息同步"""
     try:
@@ -180,11 +167,7 @@ async def run_stock_basics_sync(
         elif result.get("status") == "running":
             message = "Synchronization is already running"
 
-        return SyncResponse(
-            success=success,
-            message=message,
-            data=result
-        )
+        return SyncResponse(success=success, message=message, data=result)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to run synchronization: {str(e)}")
@@ -195,12 +178,7 @@ async def _test_single_adapter(adapter) -> dict:
     测试单个数据源适配器的连通性
     只做轻量级连通性测试，不获取完整数据
     """
-    result = {
-        "name": adapter.name,
-        "priority": adapter.priority,
-        "available": False,
-        "message": "连接失败"
-    }
+    result = {"name": adapter.name, "priority": adapter.priority, "available": False, "message": "连接失败"}
 
     # 连通性测试超时时间（秒）
     test_timeout = 10
@@ -211,7 +189,7 @@ async def _test_single_adapter(adapter) -> dict:
 
         try:
             # 对于 Tushare，强制重新连接以使用最新的数据库配置
-            if adapter.name == "tushare" and hasattr(adapter, '_provider'):
+            if adapter.name == "tushare" and hasattr(adapter, "_provider"):
                 logger.info(f"🔄 强制 {adapter.name} 重新连接以使用最新配置...")
                 provider = adapter._provider
                 if provider:
@@ -219,29 +197,23 @@ async def _test_single_adapter(adapter) -> dict:
                     provider.connected = False
                     provider.token_source = None
                     # 重新连接
-                    await asyncio.wait_for(
-                        asyncio.to_thread(provider.connect_sync),
-                        timeout=test_timeout
-                    )
+                    await asyncio.wait_for(asyncio.to_thread(provider.connect_sync), timeout=test_timeout)
 
             # 在线程池中运行 is_available() 检查
-            is_available = await asyncio.wait_for(
-                asyncio.to_thread(adapter.is_available),
-                timeout=test_timeout
-            )
+            is_available = await asyncio.wait_for(asyncio.to_thread(adapter.is_available), timeout=test_timeout)
 
             if is_available:
                 result["available"] = True
 
                 # 获取 Token 来源（仅 Tushare）
                 token_source = None
-                if adapter.name == "tushare" and hasattr(adapter, 'get_token_source'):
+                if adapter.name == "tushare" and hasattr(adapter, "get_token_source"):
                     token_source = adapter.get_token_source()
 
-                if token_source == 'database':
+                if token_source == "database":
                     result["message"] = "✅ 连接成功 (Token来源: 数据库)"
                     result["token_source"] = "database"
-                elif token_source == 'env':
+                elif token_source == "env":
                     result["message"] = "✅ 连接成功 (Token来源: .env)"
                     result["token_source"] = "env"
                 else:
@@ -271,6 +243,7 @@ async def _test_single_adapter(adapter) -> dict:
 
 class TestSourceRequest(BaseModel):
     """测试数据源请求"""
+
     source_name: str | None = None
 
 
@@ -299,10 +272,7 @@ async def test_data_sources(request: TestSourceRequest = TestSourceRequest()):
         if source_name:
             adapters_to_test = [a for a in all_adapters if a.name.lower() == source_name.lower()]
             if not adapters_to_test:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Data source '{source_name}' not found"
-                )
+                raise HTTPException(status_code=400, detail=f"Data source '{source_name}' not found")
             logger.info(f"🧪 开始测试数据源: {source_name}")
         else:
             adapters_to_test = all_adapters
@@ -317,12 +287,14 @@ async def test_data_sources(request: TestSourceRequest = TestSourceRequest()):
         for i, result in enumerate(test_results):
             if isinstance(result, Exception):
                 logger.error(f"❌ 测试适配器 {adapters_to_test[i].name} 时出错: {result}")
-                final_results.append({
-                    "name": adapters_to_test[i].name,
-                    "priority": adapters_to_test[i].priority,
-                    "available": False,
-                    "message": f"❌ 测试异常: {str(result)}"
-                })
+                final_results.append(
+                    {
+                        "name": adapters_to_test[i].name,
+                        "priority": adapters_to_test[i].priority,
+                        "available": False,
+                        "message": f"❌ 测试异常: {str(result)}",
+                    }
+                )
             else:
                 final_results.append(result)
 
@@ -336,7 +308,7 @@ async def test_data_sources(request: TestSourceRequest = TestSourceRequest()):
         return SyncResponse(
             success=True,
             message=f"Tested {len(final_results)} data sources, {available_count} available",
-            data={"test_results": final_results}
+            data={"test_results": final_results},
         )
 
     except HTTPException:
@@ -352,49 +324,41 @@ async def get_sync_recommendations():
     try:
         manager = DataSourceManager()
         available_adapters = manager.get_available_adapters()
-        
-        recommendations = {
-            "primary_source": None,
-            "fallback_sources": [],
-            "suggestions": [],
-            "warnings": []
-        }
-        
+
+        recommendations = {"primary_source": None, "fallback_sources": [], "suggestions": [], "warnings": []}
+
         if available_adapters:
             # 推荐优先级最高的可用数据源作为主数据源
             primary = available_adapters[0]
             recommendations["primary_source"] = {
                 "name": primary.name,
                 "priority": primary.priority,
-                "reason": "Highest priority available data source"
+                "reason": "Highest priority available data source",
             }
-            
+
             # 其他可用数据源作为备用
             for adapter in available_adapters[1:]:
-                recommendations["fallback_sources"].append({
-                    "name": adapter.name,
-                    "priority": adapter.priority
-                })
-        
+                recommendations["fallback_sources"].append({"name": adapter.name, "priority": adapter.priority})
+
         # 生成建议
         if not available_adapters:
             recommendations["warnings"].append("No data sources are available. Please check your configuration.")
         elif len(available_adapters) == 1:
             recommendations["suggestions"].append("Consider configuring additional data sources for redundancy.")
         else:
-            recommendations["suggestions"].append(f"You have {len(available_adapters)} data sources available, which provides good redundancy.")
-        
+            recommendations["suggestions"].append(
+                f"You have {len(available_adapters)} data sources available, which provides good redundancy."
+            )
+
         # 特定数据源的建议
         tushare_available = any(a.name == "tushare" for a in available_adapters)
         if not tushare_available:
-            recommendations["suggestions"].append("Consider configuring Tushare for the most comprehensive financial data.")
-        
-        return SyncResponse(
-            success=True,
-            message="Recommendations generated successfully",
-            data=recommendations
-        )
-        
+            recommendations["suggestions"].append(
+                "Consider configuring Tushare for the most comprehensive financial data."
+            )
+
+        return SyncResponse(success=True, message="Recommendations generated successfully", data=recommendations)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate recommendations: {str(e)}")
 
@@ -403,11 +367,12 @@ async def get_sync_recommendations():
 async def get_sync_history(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(10, ge=1, le=50, description="每页大小"),
-    status: Optional[str] = Query(None, description="状态筛选")
+    status: str | None = Query(None, description="状态筛选"),
 ):
     """获取同步历史记录"""
     try:
         from app.core.database import get_mongo_db
+
         db = get_mongo_db()
 
         # 构建查询条件
@@ -437,8 +402,8 @@ async def get_sync_history(
                 "total": total,
                 "page": page,
                 "page_size": page_size,
-                "has_more": skip + len(history_records) < total
-            }
+                "has_more": skip + len(history_records) < total,
+            },
         )
 
     except Exception as e:
@@ -457,6 +422,7 @@ async def clear_sync_cache():
         # 1. 清空同步状态
         try:
             from app.core.database import get_mongo_db
+
             db = get_mongo_db()
 
             # 删除同步状态记录
@@ -480,7 +446,7 @@ async def clear_sync_cache():
         return SyncResponse(
             success=True,
             message=f"Cache cleared successfully, {cleared_items} items removed",
-            data={"cleared": True, "items_cleared": cleared_items}
+            data={"cleared": True, "items_cleared": cleared_items},
         )
 
     except Exception as e:

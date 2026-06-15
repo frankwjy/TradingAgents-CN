@@ -2,18 +2,20 @@
 数据源回退机制模块
 当主数据源（AKShare）失败时，自动切换到备用数据源
 """
+
 import logging
-from typing import Any, Callable, Dict, List, Optional, TypeVar
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class DataSourcePriority(Enum):
     """数据源优先级"""
+
     PRIMARY = 1  # 主数据源
     SECONDARY = 2  # 备用数据源
     TERTIARY = 3  # 第三数据源
@@ -23,13 +25,14 @@ class DataSourcePriority(Enum):
 @dataclass
 class DataSourceConfig:
     """数据源配置"""
+
     name: str
     priority: DataSourcePriority
     fetch_func: Callable[..., Any]
     available: bool = True
     error_count: int = 0
     max_errors: int = 5  # 最大错误次数，超过后标记为不可用
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
 
 class DataSourceFallback:
@@ -40,8 +43,8 @@ class DataSourceFallback:
 
     def __init__(self, name: str = "default"):
         self.name = name
-        self._sources: Dict[str, DataSourceConfig] = {}
-        self._fallback_order: List[str] = []
+        self._sources: dict[str, DataSourceConfig] = {}
+        self._fallback_order: list[str] = []
 
     def add_source(
         self,
@@ -74,12 +77,9 @@ class DataSourceFallback:
             key=lambda x: self._sources[x].priority.value,
         )
 
-    def get_available_sources(self) -> List[str]:
+    def get_available_sources(self) -> list[str]:
         """获取可用数据源列表"""
-        return [
-            name for name in self._fallback_order
-            if self._sources[name].available
-        ]
+        return [name for name in self._fallback_order if self._sources[name].available]
 
     def mark_error(self, source_name: str, error: str) -> None:
         """
@@ -96,10 +96,7 @@ class DataSourceFallback:
 
             if source.error_count >= source.max_errors:
                 source.available = False
-                logger.warning(
-                    f"⚠️ 数据源 {source_name} 错误次数过多 ({source.error_count}), "
-                    f"已标记为不可用"
-                )
+                logger.warning(f"⚠️ 数据源 {source_name} 错误次数过多 ({source.error_count}), 已标记为不可用")
 
     def mark_success(self, source_name: str) -> None:
         """
@@ -124,7 +121,7 @@ class DataSourceFallback:
     def fetch_with_fallback(
         self,
         *args,
-        preferred_source: Optional[str] = None,
+        preferred_source: str | None = None,
         **kwargs,
     ) -> Any:
         """
@@ -174,9 +171,9 @@ class DataSourceFallback:
         # 所有数据源都失败
         available_sources = self.get_available_sources()
         if not available_sources:
-            logger.error(f"❌ 所有数据源都不可用")
+            logger.error("❌ 所有数据源都不可用")
         else:
-            logger.error(f"❌ 所有可用数据源都失败")
+            logger.error("❌ 所有可用数据源都失败")
 
         if last_exception:
             raise last_exception
@@ -185,7 +182,7 @@ class DataSourceFallback:
     async def async_fetch_with_fallback(
         self,
         *args,
-        preferred_source: Optional[str] = None,
+        preferred_source: str | None = None,
         **kwargs,
     ) -> Any:
         """
@@ -235,15 +232,15 @@ class DataSourceFallback:
         # 所有数据源都失败
         available_sources = self.get_available_sources()
         if not available_sources:
-            logger.error(f"❌ 所有数据源都不可用")
+            logger.error("❌ 所有数据源都不可用")
         else:
-            logger.error(f"❌ 所有可用数据源都失败")
+            logger.error("❌ 所有可用数据源都失败")
 
         if last_exception:
             raise last_exception
         return None
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """获取数据源状态信息"""
         return {
             "name": self.name,

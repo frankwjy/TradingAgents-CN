@@ -3,23 +3,25 @@
 
 从 tradingagents/dataflows/utils.py 迁移而来
 """
-import os
-import json
-import pandas as pd
-from datetime import date, timedelta, datetime
+
+from datetime import date, datetime, timedelta
 from typing import Annotated
+
+import pandas as pd
 
 # 导入日志模块
 from tradingagents.utils.logging_manager import get_logger
-logger = get_logger('agents')
+
+logger = get_logger("agents")
 
 
 SavePathType = Annotated[str, "File path to save data. If None, data is not saved."]
 
+
 def save_output(data: pd.DataFrame, tag: str, save_path: SavePathType = None) -> None:
     """
     保存 DataFrame 到 CSV 文件
-    
+
     Args:
         data: 要保存的 DataFrame
         tag: 标签（用于日志）
@@ -33,7 +35,7 @@ def save_output(data: pd.DataFrame, tag: str, save_path: SavePathType = None) ->
 def get_current_date():
     """
     获取当前日期（YYYY-MM-DD 格式）
-    
+
     Returns:
         str: 当前日期字符串
     """
@@ -43,19 +45,20 @@ def get_current_date():
 def decorate_all_methods(decorator):
     """
     类装饰器：为类的所有方法应用指定的装饰器
-    
+
     Args:
         decorator: 要应用的装饰器函数
-        
+
     Returns:
         function: 类装饰器函数
-        
+
     Example:
         >>> @decorate_all_methods(my_decorator)
         >>> class MyClass:
         >>>     def method1(self):
         >>>         pass
     """
+
     def class_decorator(cls):
         for attr_name, attr_value in cls.__dict__.items():
             if callable(attr_value):
@@ -129,4 +132,3 @@ def get_trading_date_range(target_date=None, lookback_days=10):
 
     # 返回日期范围
     return start_date.strftime("%Y-%m-%d"), target_date.strftime("%Y-%m-%d")
-

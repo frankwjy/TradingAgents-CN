@@ -3,21 +3,22 @@
 Extracted from AnalysisService to reduce file size and improve modularity
 without changing external behavior.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
 
 from app.core.database import get_mongo_db
-from app.core.redis_client import get_redis_service, RedisKeys
-from app.models.analysis import AnalysisStatus, AnalysisResult
+from app.core.redis_client import RedisKeys, get_redis_service
+from app.models.analysis import AnalysisResult, AnalysisStatus
 
 
 async def perform_update_task_status(
     task_id: str,
     status: AnalysisStatus,
     progress: int,
-    result: Optional[AnalysisResult] = None,
+    result: AnalysisResult | None = None,
 ) -> None:
     """Update a task's status in MongoDB and Redis.
 
@@ -26,7 +27,7 @@ async def perform_update_task_status(
     db = get_mongo_db()
     redis_service = get_redis_service()
 
-    update_data: Dict[str, Any] = {
+    update_data: dict[str, Any] = {
         "status": status,
         "progress": progress,
         "updated_at": datetime.utcnow(),
@@ -58,7 +59,7 @@ async def perform_update_task_status_with_tracker(
     task_id: str,
     status: AnalysisStatus,
     progress_tracker,  # RedisProgressTracker
-    result: Optional[AnalysisResult] = None,
+    result: AnalysisResult | None = None,
 ) -> None:
     """Update task status using detailed data from a progress tracker.
 
@@ -69,7 +70,7 @@ async def perform_update_task_status_with_tracker(
 
     progress_data = progress_tracker.to_dict()
 
-    update_data: Dict[str, Any] = {
+    update_data: dict[str, Any] = {
         "status": status,
         "progress": progress_data["progress"],
         "current_step": progress_data["current_step"],
@@ -102,4 +103,3 @@ async def perform_update_task_status_with_tracker(
         },
         ttl=3600,
     )
-

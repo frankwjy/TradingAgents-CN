@@ -2,25 +2,28 @@
 Utility functions for screening evaluation and DSL parsing.
 Extracted from ScreeningService to separate concerns while keeping API unchanged.
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Iterable
-import pandas as pd
+from collections.abc import Iterable
+from typing import Any
+
 import numpy as np
+import pandas as pd
 
 
-def collect_fields_from_conditions(node: Dict[str, Any], allowed_fields: Iterable[str]) -> List[str]:
+def collect_fields_from_conditions(node: dict[str, Any], allowed_fields: Iterable[str]) -> list[str]:
     if not node:
         return []
     if node.get("op") == "group" or "children" in node:
-        fields: List[str] = []
+        fields: list[str] = []
         for c in node.get("children", []):
             fields.extend(collect_fields_from_conditions(c, allowed_fields))
         # de-duplicate keep order
         return list(dict.fromkeys(fields))
     f = node.get("field")
     rf = node.get("right_field")
-    out: List[str] = []
+    out: list[str] = []
     if isinstance(f, str) and f in allowed_fields:
         out.append(f)
     if isinstance(rf, str) and rf in allowed_fields:
@@ -28,7 +31,7 @@ def collect_fields_from_conditions(node: Dict[str, Any], allowed_fields: Iterabl
     return out
 
 
-def evaluate_fund_conditions(snap: Dict[str, Any], node: Dict[str, Any], fund_fields: Iterable[str]) -> bool:
+def evaluate_fund_conditions(snap: dict[str, Any], node: dict[str, Any], fund_fields: Iterable[str]) -> bool:
     if not node:
         return True
     # group
@@ -77,7 +80,7 @@ def evaluate_fund_conditions(snap: Dict[str, Any], node: Dict[str, Any], fund_fi
 
 def evaluate_conditions(
     df: pd.DataFrame,
-    node: Dict[str, Any],
+    node: dict[str, Any],
     allowed_fields: Iterable[str],
     allowed_ops: Iterable[str],
 ) -> bool:
@@ -157,11 +160,10 @@ def evaluate_conditions(
     return False
 
 
-def safe_float(v: Any) -> Optional[float]:
+def safe_float(v: Any) -> float | None:
     try:
         if v is None or (isinstance(v, float) and np.isnan(v)):
             return None
         return float(v)
     except Exception:
         return None
-

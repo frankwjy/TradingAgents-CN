@@ -1,9 +1,9 @@
 import logging
 import logging.config
-import sys
-from pathlib import Path
 import os
 import platform
+import sys
+from pathlib import Path
 
 from app.core.logging_context import LoggingContextFilter, trace_id_var
 
@@ -12,6 +12,7 @@ _IS_WINDOWS = platform.system() == "Windows"
 if _IS_WINDOWS:
     try:
         from concurrent_log_handler import ConcurrentRotatingFileHandler
+
         _USE_CONCURRENT_HANDLER = True
     except ImportError:
         _USE_CONCURRENT_HANDLER = False
@@ -44,18 +45,28 @@ class SimpleJsonFormatter(logging.Formatter):
     Includes standard fields plus any extra fields injected via
     LoggingContextFilter (request_context_var) or direct record attributes.
     """
+
     # Fields to always include from the LogRecord
-    _CORE_FIELDS = {"time", "name", "level", "trace_id", "message",
-                    "module", "funcName", "lineno", "pathname"}
+    _CORE_FIELDS = {"time", "name", "level", "trace_id", "message", "module", "funcName", "lineno", "pathname"}
     # Fields from LogRecord internals to skip
     _SKIP_FIELDS = {
-        "msg", "args", "created", "relativeCreated", "exc_info",
-        "exc_text", "stack_info", "thread", "threadName",
-        "processName", "process", "taskName",
+        "msg",
+        "args",
+        "created",
+        "relativeCreated",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "thread",
+        "threadName",
+        "processName",
+        "process",
+        "taskName",
     }
 
     def format(self, record: logging.LogRecord) -> str:
         import json
+
         obj = {
             "time": self.formatTime(record, "%Y-%m-%d %H:%M:%S"),
             "name": record.name,
@@ -96,6 +107,7 @@ def _parse_size(size_str: str) -> int:
             return 10 * 1024 * 1024
     return 10 * 1024 * 1024
 
+
 def setup_logging(log_level: str = "INFO"):
     """
     设置应用日志配置：
@@ -112,17 +124,12 @@ def setup_logging(log_level: str = "INFO"):
             with cfg_path.open("rb") as f:
                 toml_data = toml_loader.load(f)
 
-
             # 读取基础字段
             logging_root = toml_data.get("logging", {})
             level = logging_root.get("level", log_level)
             fmt_cfg = logging_root.get("format", {})
-            fmt_console = fmt_cfg.get(
-                "console", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-            fmt_file = fmt_cfg.get(
-                "file", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
+            fmt_console = fmt_cfg.get("console", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+            fmt_file = fmt_cfg.get("file", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             # 确保文本格式包含 trace_id（若未显式包含）
             if "%(trace_id)" not in str(fmt_console):
                 fmt_console = str(fmt_console) + " trace=%(trace_id)s"
@@ -151,14 +158,12 @@ def setup_logging(log_level: str = "INFO"):
             webapi_handler_cfg = handlers_cfg.get("webapi", {})
             worker_handler_cfg = handlers_cfg.get("worker", {})
 
-
             # 主日志文件（tradingagents.log）
             main_log = main_handler_cfg.get("filename", str(Path(file_dir) / "tradingagents.log"))
             main_enabled = main_handler_cfg.get("enabled", True)
             main_level = main_handler_cfg.get("level", "INFO")
             main_max_bytes = _parse_size(main_handler_cfg.get("max_size", "100MB"))
             main_backup_count = int(main_handler_cfg.get("backup_count", 5))
-
 
             # WebAPI日志文件
             webapi_log = webapi_handler_cfg.get("filename", str(Path(file_dir) / "webapi.log"))
@@ -167,14 +172,12 @@ def setup_logging(log_level: str = "INFO"):
             webapi_max_bytes = _parse_size(webapi_handler_cfg.get("max_size", "100MB"))
             webapi_backup_count = int(webapi_handler_cfg.get("backup_count", 5))
 
-
             # Worker日志文件
             worker_log = worker_handler_cfg.get("filename", str(Path(file_dir) / "worker.log"))
             worker_enabled = worker_handler_cfg.get("enabled", True)
             worker_level = worker_handler_cfg.get("level", "DEBUG")
             worker_max_bytes = _parse_size(worker_handler_cfg.get("max_size", "100MB"))
             worker_backup_count = int(worker_handler_cfg.get("backup_count", 5))
-
 
             # 错误日志文件
             error_handler_cfg = handlers_cfg.get("error", {})
@@ -203,9 +206,12 @@ def setup_logging(log_level: str = "INFO"):
                 },
             }
 
-
             # 🔥 选择日志处理器类（Windows 使用 ConcurrentRotatingFileHandler）
-            handler_class = "concurrent_log_handler.ConcurrentRotatingFileHandler" if _USE_CONCURRENT_HANDLER else "logging.handlers.RotatingFileHandler"
+            handler_class = (
+                "concurrent_log_handler.ConcurrentRotatingFileHandler"
+                if _USE_CONCURRENT_HANDLER
+                else "logging.handlers.RotatingFileHandler"
+            )
 
             # 主日志文件（tradingagents.log）
             if main_enabled:
@@ -268,7 +274,6 @@ def setup_logging(log_level: str = "INFO"):
             if error_enabled:
                 main_handlers.append("error_file")
 
-
             webapi_handlers = ["console"]
             if webapi_enabled:
                 webapi_handlers.append("file")
@@ -276,7 +281,6 @@ def setup_logging(log_level: str = "INFO"):
                 webapi_handlers.append("main_file")
             if error_enabled:
                 webapi_handlers.append("error_file")
-
 
             worker_handlers = ["console"]
             if worker_enabled:
@@ -286,13 +290,10 @@ def setup_logging(log_level: str = "INFO"):
             if error_enabled:
                 worker_handlers.append("error_file")
 
-
             logging_config = {
                 "version": 1,
                 "disable_existing_loggers": False,
-                "filters": {
-                    "request_context": {"()": "app.core.logging_context.LoggingContextFilter"}
-                },
+                "filters": {"request_context": {"()": "app.core.logging_context.LoggingContextFilter"}},
                 "formatters": {
                     "console_fmt": {
                         "format": fmt_console,
@@ -302,53 +303,24 @@ def setup_logging(log_level: str = "INFO"):
                         "format": fmt_file,
                         "datefmt": "%Y-%m-%d %H:%M:%S",
                     },
-                    "json_console_fmt": {
-                        "()": "app.core.logging_config.SimpleJsonFormatter"
-                    },
-                    "json_file_fmt": {
-                        "()": "app.core.logging_config.SimpleJsonFormatter"
-                    },
+                    "json_console_fmt": {"()": "app.core.logging_config.SimpleJsonFormatter"},
+                    "json_file_fmt": {"()": "app.core.logging_config.SimpleJsonFormatter"},
                 },
                 "handlers": handlers_config,
                 "loggers": {
-                    "tradingagents": {
-                        "level": "INFO",
-                        "handlers": main_handlers,
-                        "propagate": False
-                    },
-                    "webapi": {
-                        "level": "INFO",
-                        "handlers": webapi_handlers,
-                        "propagate": False
-                    },
-                    "worker": {
-                        "level": "DEBUG",
-                        "handlers": worker_handlers,
-                        "propagate": False
-                    },
-                    "uvicorn": {
-                        "level": "INFO",
-                        "handlers": webapi_handlers,
-                        "propagate": False
-                    },
-                    "fastapi": {
-                        "level": "INFO",
-                        "handlers": webapi_handlers,
-                        "propagate": False
-                    },
-                    "app": {
-                        "level": "INFO",
-                        "handlers": webapi_handlers,
-                        "propagate": False
-                    },
+                    "tradingagents": {"level": "INFO", "handlers": main_handlers, "propagate": False},
+                    "webapi": {"level": "INFO", "handlers": webapi_handlers, "propagate": False},
+                    "worker": {"level": "DEBUG", "handlers": worker_handlers, "propagate": False},
+                    "uvicorn": {"level": "INFO", "handlers": webapi_handlers, "propagate": False},
+                    "fastapi": {"level": "INFO", "handlers": webapi_handlers, "propagate": False},
+                    "app": {"level": "INFO", "handlers": webapi_handlers, "propagate": False},
                 },
                 "root": {"level": level, "handlers": main_handlers},
             }
 
-
             logging.config.dictConfig(logging_config)
 
-            print(f" [setup_logging] dictConfig 应用成功")
+            print(" [setup_logging] dictConfig 应用成功")
 
             logging.getLogger("webapi").info(f"Logging configured from {cfg_path}")
 
@@ -367,7 +339,11 @@ def setup_logging(log_level: str = "INFO"):
     log_dir.mkdir(exist_ok=True)
 
     # 🔥 选择日志处理器类（Windows 使用 ConcurrentRotatingFileHandler）
-    handler_class = "concurrent_log_handler.ConcurrentRotatingFileHandler" if _USE_CONCURRENT_HANDLER else "logging.handlers.RotatingFileHandler"
+    handler_class = (
+        "concurrent_log_handler.ConcurrentRotatingFileHandler"
+        if _USE_CONCURRENT_HANDLER
+        else "logging.handlers.RotatingFileHandler"
+    )
 
     logging_config = {
         "version": 1,

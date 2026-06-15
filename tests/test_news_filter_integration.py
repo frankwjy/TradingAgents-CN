@@ -7,34 +7,37 @@ Covers:
 3. enhanced_news_retriever.py functionality
 """
 
-import pytest
-import pandas as pd
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pandas as pd
+import pytest
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def sample_news_df():
     """DataFrame mimicking AKShare stock_news_em output."""
-    return pd.DataFrame([
-        {
-            '新闻标题': '招商银行发布2024年第三季度业绩报告',
-            '新闻内容': '招商银行今日发布第三季度财报，净利润同比增长8%，资产质量持续改善。',
-        },
-        {
-            '新闻标题': '上证180ETF指数基金（530280）自带杠铃策略',
-            '新闻内容': '数据显示，上证180指数前十大权重股分别为贵州茅台、招商银行600036。该ETF基金采用被动投资策略。',
-        },
-        {
-            '新闻标题': '银行ETF指数(512730)多只成分股上涨',
-            '新闻内容': '银行板块今日表现强势，招商银行、工商银行等多只成分股上涨，银行ETF基金受益明显。',
-        },
-        {
-            '新闻标题': '招商银行与某科技公司签署战略合作协议',
-            '新闻内容': '招商银行宣布与知名科技公司达成战略合作，将在数字化转型方面深度合作。',
-        },
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "新闻标题": "招商银行发布2024年第三季度业绩报告",
+                "新闻内容": "招商银行今日发布第三季度财报，净利润同比增长8%，资产质量持续改善。",
+            },
+            {
+                "新闻标题": "上证180ETF指数基金（530280）自带杠铃策略",
+                "新闻内容": "数据显示，上证180指数前十大权重股分别为贵州茅台、招商银行600036。该ETF基金采用被动投资策略。",
+            },
+            {
+                "新闻标题": "银行ETF指数(512730)多只成分股上涨",
+                "新闻内容": "银行板块今日表现强势，招商银行、工商银行等多只成分股上涨，银行ETF基金受益明显。",
+            },
+            {
+                "新闻标题": "招商银行与某科技公司签署战略合作协议",
+                "新闻内容": "招商银行宣布与知名科技公司达成战略合作，将在数字化转型方面深度合作。",
+            },
+        ]
+    )
 
 
 @pytest.fixture
@@ -42,21 +45,22 @@ def sample_news_list():
     """List-of-dicts format returned by AKShareProvider.get_stock_news async."""
     return [
         {
-            'title': '招商银行发布2024年第三季度业绩报告',
-            'content': '招商银行今日发布第三季度财报，净利润同比增长8%。',
-            'publish_time': '2024-07-28 10:00:00',
-            'source': '东方财富',
+            "title": "招商银行发布2024年第三季度业绩报告",
+            "content": "招商银行今日发布第三季度财报，净利润同比增长8%。",
+            "publish_time": "2024-07-28 10:00:00",
+            "source": "东方财富",
         },
         {
-            'title': '上证180ETF指数基金（530280）自带杠铃策略',
-            'content': '该ETF基金采用被动投资策略，跟踪上证180指数。',
-            'publish_time': '2024-07-28 09:00:00',
-            'source': '东方财富',
+            "title": "上证180ETF指数基金（530280）自带杠铃策略",
+            "content": "该ETF基金采用被动投资策略，跟踪上证180指数。",
+            "publish_time": "2024-07-28 09:00:00",
+            "source": "东方财富",
         },
     ]
 
 
 # ── 1. news_filter_integration.py A-share path ──────────────────────────────
+
 
 class TestFilteredRealtimeNewsAshare:
     """The A-share path in create_filtered_realtime_news_function should fetch
@@ -72,12 +76,15 @@ class TestFilteredRealtimeNewsAshare:
         mock_provider = MagicMock()
         mock_provider.get_stock_news_sync.return_value = sample_news_df
 
-        with patch(
-            "tradingagents.dataflows.providers.china.akshare.AKShareProvider",
-            return_value=mock_provider,
-        ), patch(
-            "tradingagents.dataflows.news.realtime_news.get_realtime_stock_news",
-            return_value="原始报告内容",
+        with (
+            patch(
+                "tradingagents.dataflows.providers.china.akshare.AKShareProvider",
+                return_value=mock_provider,
+            ),
+            patch(
+                "tradingagents.dataflows.news.realtime_news.get_realtime_stock_news",
+                return_value="原始报告内容",
+            ),
         ):
             result = fn(ticker="600036", curr_date="2024-07-28", enable_filter=True, min_score=30)
 
@@ -110,12 +117,15 @@ class TestFilteredRealtimeNewsAshare:
         mock_provider = MagicMock()
         mock_provider.get_stock_news_sync.return_value = None
 
-        with patch(
-            "tradingagents.dataflows.providers.china.akshare.AKShareProvider",
-            return_value=mock_provider,
-        ), patch(
-            "tradingagents.dataflows.news.realtime_news.get_realtime_stock_news",
-            return_value="原始报告内容",
+        with (
+            patch(
+                "tradingagents.dataflows.providers.china.akshare.AKShareProvider",
+                return_value=mock_provider,
+            ),
+            patch(
+                "tradingagents.dataflows.news.realtime_news.get_realtime_stock_news",
+                return_value="原始报告内容",
+            ),
         ):
             result = fn(ticker="600036", curr_date="2024-07-28", enable_filter=True)
 
@@ -140,6 +150,7 @@ class TestFilteredRealtimeNewsAshare:
 
 # ── 2. UnifiedNewsAnalyzer filtering integration ─────────────────────────────
 
+
 class TestUnifiedNewsAnalyzerFiltering:
     """UnifiedNewsAnalyzer should apply NewsRelevanceFilter to A-share news
     retrieved from the database."""
@@ -152,14 +163,12 @@ class TestUnifiedNewsAnalyzerFiltering:
         analyzer = UnifiedNewsAnalyzer(mock_toolkit)
 
         # Mock database to return news
-        with patch.object(analyzer, '_get_news_from_database') as mock_db:
+        with patch.object(analyzer, "_get_news_from_database") as mock_db:
             # Return a formatted report that contains raw news
-            raw_report = "\n".join(
-                f"## {i+1}. {n['title']}\n{n['content']}" for i, n in enumerate(sample_news_list)
-            )
+            raw_report = "\n".join(f"## {i + 1}. {n['title']}\n{n['content']}" for i, n in enumerate(sample_news_list))
             mock_db.return_value = raw_report
 
-            with patch.object(analyzer, '_format_news_result', side_effect=lambda c, s, m="": c):
+            with patch.object(analyzer, "_format_news_result", side_effect=lambda c, s, m="": c):
                 result = analyzer._get_a_share_news("600036", 10, "")
 
         # The result should have been filtered — ETF news should be penalized
@@ -179,6 +188,7 @@ class TestUnifiedNewsAnalyzerFiltering:
 
 # ── 3. NewsRelevanceFilter basic functionality ───────────────────────────────
 
+
 class TestNewsRelevanceFilter:
     """Verify the core filter scores news correctly."""
 
@@ -186,10 +196,7 @@ class TestNewsRelevanceFilter:
         from tradingagents.utils.news_filter import create_news_filter
 
         f = create_news_filter("600036")
-        score = f.calculate_relevance_score(
-            "招商银行发布2024年第三季度业绩报告",
-            "招商银行今日发布第三季度财报"
-        )
+        score = f.calculate_relevance_score("招商银行发布2024年第三季度业绩报告", "招商银行今日发布第三季度财报")
         assert score >= 50, f"Expected >=50 for direct company mention in title, got {score}"
 
     def test_low_score_for_etf_news(self):
@@ -197,8 +204,7 @@ class TestNewsRelevanceFilter:
 
         f = create_news_filter("600036")
         score = f.calculate_relevance_score(
-            "上证180ETF指数基金（530280）自带杠铃策略",
-            "该ETF基金采用被动投资策略，跟踪上证180指数"
+            "上证180ETF指数基金（530280）自带杠铃策略", "该ETF基金采用被动投资策略，跟踪上证180指数"
         )
         assert score < 30, f"Expected <30 for ETF news, got {score}"
 
@@ -219,12 +225,13 @@ class TestNewsRelevanceFilter:
         filtered = f.filter_news(sample_news_df, min_score=30)
         stats = f.get_filter_statistics(sample_news_df, filtered)
 
-        assert stats['original_count'] == len(sample_news_df)
-        assert stats['filtered_count'] == len(filtered)
-        assert stats['filter_rate'] > 0
+        assert stats["original_count"] == len(sample_news_df)
+        assert stats["filtered_count"] == len(filtered)
+        assert stats["filter_rate"] > 0
 
 
 # ── 4. EnhancedNewsFilter (rule-only mode) ───────────────────────────────────
+
 
 class TestEnhancedNewsFilter:
     """Test enhanced filter with only rule-based scoring (no external deps)."""
@@ -236,11 +243,12 @@ class TestEnhancedNewsFilter:
         filtered = f.filter_news_enhanced(sample_news_df, min_score=30)
 
         assert len(filtered) < len(sample_news_df)
-        assert 'final_score' in filtered.columns
-        assert 'rule_score' in filtered.columns
+        assert "final_score" in filtered.columns
+        assert "rule_score" in filtered.columns
 
 
 # ── 5. EnhancedNewsRetriever ─────────────────────────────────────────────────
+
 
 class TestEnhancedNewsRetriever:
     """Test the EnhancedNewsRetriever that combines retrieval + filtering."""
@@ -252,7 +260,7 @@ class TestEnhancedNewsRetriever:
         filtered = retriever.filter_dataframe(sample_news_df)
 
         assert len(filtered) < len(sample_news_df)
-        assert 'final_score' in filtered.columns
+        assert "final_score" in filtered.columns
 
     def test_filter_empty_dataframe(self):
         from tradingagents.utils.enhanced_news_retriever import create_enhanced_news_retriever
@@ -278,9 +286,9 @@ class TestEnhancedNewsRetriever:
         filtered = retriever.filter_dataframe(sample_news_df)
         stats = retriever.get_statistics(sample_news_df, filtered)
 
-        assert stats['original_count'] == len(sample_news_df)
-        assert stats['filtered_count'] == len(filtered)
-        assert stats['filter_rate'] > 0
+        assert stats["original_count"] == len(sample_news_df)
+        assert stats["filtered_count"] == len(filtered)
+        assert stats["filter_rate"] > 0
 
     def test_retrieve_filtered_news_with_mock(self, sample_news_df):
         from tradingagents.utils.enhanced_news_retriever import create_enhanced_news_retriever
@@ -310,4 +318,4 @@ class TestEnhancedNewsRetriever:
         # ETF news should be filtered or scored lower
         assert len(filtered) <= len(sample_news_list)
         if filtered:
-            assert 'relevance_score' in filtered[0]
+            assert "relevance_score" in filtered[0]

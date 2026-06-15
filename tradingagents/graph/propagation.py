@@ -1,12 +1,12 @@
 # TradingAgents/graph/propagation.py
 
-from typing import Dict, Any
+from typing import Any
 
 # 导入统一日志系统
 from tradingagents.utils.logging_init import get_logger
+
 logger = get_logger("default")
 from tradingagents.agents.utils.agent_states import (
-    AgentState,
     InvestDebateState,
     RiskDebateState,
 )
@@ -19,9 +19,7 @@ class Propagator:
         """Initialize with configuration parameters."""
         self.max_recur_limit = max_recur_limit
 
-    def create_initial_state(
-        self, company_name: str, trade_date: str
-    ) -> Dict[str, Any]:
+    def create_initial_state(self, company_name: str, trade_date: str) -> dict[str, Any]:
         """Create the initial state for the agent graph."""
         from langchain_core.messages import HumanMessage
 
@@ -33,9 +31,7 @@ class Propagator:
             "messages": [HumanMessage(content=analysis_request)],
             "company_of_interest": company_name,
             "trade_date": str(trade_date),
-            "investment_debate_state": InvestDebateState(
-                {"history": "", "current_response": "", "count": 0}
-            ),
+            "investment_debate_state": InvestDebateState({"history": "", "current_response": "", "count": 0}),
             "risk_debate_state": RiskDebateState(
                 {
                     "history": "",
@@ -51,7 +47,7 @@ class Propagator:
             "news_report": "",
         }
 
-    def get_graph_args(self, use_progress_callback: bool = False) -> Dict[str, Any]:
+    def get_graph_args(self, use_progress_callback: bool = False) -> dict[str, Any]:
         """Get arguments for the graph invocation.
 
         Args:

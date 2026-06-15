@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Any, Dict
-import re
 import logging
+import re
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.config import settings
 from app.routers.auth_db import get_current_user
@@ -37,20 +38,20 @@ def _mask_value(key: str, value: Any) -> Any:
     return value
 
 
-def _build_summary() -> Dict[str, Any]:
+def _build_summary() -> dict[str, Any]:
     raw = settings.model_dump()
     # Attach derived URLs
     raw["MONGO_URI"] = settings.MONGO_URI
     raw["REDIS_URL"] = settings.REDIS_URL
 
-    summary: Dict[str, Any] = {}
+    summary: dict[str, Any] = {}
     for k, v in raw.items():
         summary[k] = _mask_value(k, v)
     return summary
 
 
 @router.get("/config/summary", tags=["system"], summary="配置概要（已屏蔽敏感项，需管理员）")
-async def get_config_summary(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+async def get_config_summary(current_user: dict = Depends(get_current_user)) -> dict[str, Any]:
     """
     返回当前生效的设置概要。敏感字段将以 *** 掩码显示。
     访问控制：需管理员身份。
@@ -72,8 +73,8 @@ async def validate_config():
 
     注意：此接口会先从 MongoDB 重载配置到环境变量，然后再验证。
     """
-    from app.core.startup_validator import StartupValidator
     from app.core.config_bridge import bridge_config_to_env
+    from app.core.startup_validator import StartupValidator
     from app.services.config_service import config_service
 
     try:
@@ -89,23 +90,16 @@ async def validate_config():
         env_result = validator.validate()
 
         # 🔍 步骤3: 验证 MongoDB 中的配置（厂家级别）
-        mongodb_validation = {
-            "llm_providers": [],
-            "data_source_configs": [],
-            "warnings": []
-        }
+        mongodb_validation = {"llm_providers": [], "data_source_configs": [], "warnings": []}
 
         try:
-            from app.utils.api_key_utils import (
-                is_valid_api_key,
-                get_env_api_key_for_provider
-            )
-
             # 🔥 修改：直接从数据库读取原始数据，避免使用 get_llm_providers() 返回的已修改数据
             # get_llm_providers() 会将环境变量的 Key 赋值给 provider.api_key，导致无法区分来源
             from pymongo import MongoClient
+
             from app.core.config import settings
             from app.models.config import LLMProvider
+            from app.utils.api_key_utils import get_env_api_key_for_provider, is_valid_api_key
 
             # 创建同步 MongoDB 客户端
             client = MongoClient(settings.MONGO_URI)
@@ -134,7 +128,7 @@ async def validate_config():
                     "status": "未配置",
                     "source": None,  # 标识配置来源（database/environment）
                     "mongodb_configured": False,  # MongoDB 是否配置
-                    "env_configured": False  # 环境变量是否配置
+                    "env_configured": False,  # 环境变量是否配置
                 }
 
                 # 🔥 关键：检查数据库中的原始 API Key 是否有效
@@ -170,10 +164,7 @@ async def validate_config():
                 mongodb_validation["llm_providers"].append(validation_item)
 
             # 验证数据源配置
-            from app.utils.api_key_utils import (
-                is_valid_api_key,
-                get_env_api_key_for_datasource
-            )
+            from app.utils.api_key_utils import get_env_api_key_for_datasource, is_valid_api_key
 
             system_config = await config_service.get_system_config()
             if system_config and system_config.data_source_configs:
@@ -192,7 +183,7 @@ async def validate_config():
                         "status": "未配置",
                         "source": None,  # 标识配置来源（database/environment/builtin）
                         "mongodb_configured": False,  # 新增：MongoDB 是否配置
-                        "env_configured": False  # 新增：环境变量是否配置
+                        "env_configured": False,  # 新增：环境变量是否配置
                     }
 
                     # 某些数据源不需要 API Key（如 AKShare）
@@ -208,7 +199,7 @@ async def validate_config():
                         validation_item["mongodb_configured"] = db_key_valid
 
                         # 检查环境变量中的 API Key 是否有效
-                        ds_type = ds_config.type.value if hasattr(ds_config.type, 'value') else ds_config.type
+                        ds_type = ds_config.type.value if hasattr(ds_config.type, "value") else ds_config.type
                         env_key = get_env_api_key_for_datasource(ds_type)
                         env_key_valid = env_key is not None
                         validation_item["env_configured"] = env_key_valid
@@ -241,7 +232,9 @@ async def validate_config():
             mongodb_validation["warnings"].append(f"MongoDB 配置验证失败: {str(e)}")
 
         # 合并验证结果
-        logger.info(f"🔍 MongoDB 验证结果: {len(mongodb_validation['llm_providers'])} 个大模型厂家, {len(mongodb_validation['data_source_configs'])} 个数据源, {len(mongodb_validation['warnings'])} 个警告")
+        logger.info(
+            f"🔍 MongoDB 验证结果: {len(mongodb_validation['llm_providers'])} 个大模型厂家, {len(mongodb_validation['data_source_configs'])} 个数据源, {len(mongodb_validation['warnings'])} 个警告"
+        )
 
         # 🔥 修改：只有必需配置有问题时才认为验证失败
         # MongoDB 配置警告（推荐配置）不影响总体验证结果
@@ -255,30 +248,24 @@ async def validate_config():
                 "env_validation": {
                     "success": env_result.success,
                     "missing_required": [
-                        {"key": config.key, "description": config.description}
-                        for config in env_result.missing_required
+                        {"key": config.key, "description": config.description} for config in env_result.missing_required
                     ],
                     "missing_recommended": [
                         {"key": config.key, "description": config.description}
                         for config in env_result.missing_recommended
                     ],
                     "invalid_configs": [
-                        {"key": config.key, "error": config.description}
-                        for config in env_result.invalid_configs
+                        {"key": config.key, "error": config.description} for config in env_result.invalid_configs
                     ],
-                    "warnings": env_result.warnings
+                    "warnings": env_result.warnings,
                 },
                 # MongoDB 配置验证结果
                 "mongodb_validation": mongodb_validation,
                 # 总体验证结果（只考虑必需配置）
-                "success": overall_success
+                "success": overall_success,
             },
-            "message": "配置验证完成"
+            "message": "配置验证完成",
         }
     except Exception as e:
         logger.error(f"配置验证失败: {e}", exc_info=True)
-        return {
-            "success": False,
-            "data": None,
-            "message": f"配置验证失败: {str(e)}"
-        }
+        return {"success": False, "data": None, "message": f"配置验证失败: {str(e)}"}

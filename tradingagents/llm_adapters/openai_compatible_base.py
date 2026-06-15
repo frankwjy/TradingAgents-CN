@@ -5,23 +5,26 @@ OpenAI兼容适配器基类
 
 import os
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
+
+from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.messages import BaseMessage
 from langchain_core.outputs import ChatResult
 from langchain_openai import ChatOpenAI
-from langchain_core.callbacks import CallbackManagerForLLMRun
 
 # 导入统一日志系统
 from tradingagents.utils.logging_init import setup_llm_logging
 
 # 导入日志模块
-from tradingagents.utils.logging_manager import get_logger, get_logger_manager
-logger = get_logger('agents')
+from tradingagents.utils.logging_manager import get_logger
+
+logger = get_logger("agents")
 logger = setup_llm_logging()
 
 # 导入token跟踪器
 try:
     from tradingagents.config.config_manager import token_tracker
+
     TOKEN_TRACKING_ENABLED = True
     logger.info("✅ Token跟踪功能已启用")
 except ImportError:
@@ -34,21 +37,21 @@ class OpenAICompatibleBase(ChatOpenAI):
     OpenAI兼容适配器基类
     为所有支持OpenAI接口的LLM提供商提供统一实现
     """
-    
+
     def __init__(
         self,
         provider_name: str,
         model: str,
         api_key_env_var: str,
         base_url: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         temperature: float = 0.1,
-        max_tokens: Optional[int] = None,
-        **kwargs
+        max_tokens: int | None = None,
+        **kwargs,
     ):
         """
         初始化OpenAI兼容适配器
-        
+
         Args:
             provider_name: 提供商名称 (如: "deepseek", "dashscope")
             model: 模型名称
@@ -59,7 +62,7 @@ class OpenAICompatibleBase(ChatOpenAI):
             max_tokens: 最大token数
             **kwargs: 其他参数
         """
-        
+
         # 🔍 [DEBUG] 读取环境变量前的日志
         logger.info(f"🔍 [{provider_name}初始化] 开始初始化 OpenAI 兼容适配器")
         logger.info(f"🔍 [{provider_name}初始化] 模型: {model}")
@@ -76,24 +79,29 @@ class OpenAICompatibleBase(ChatOpenAI):
             try:
                 from app.utils.api_key_utils import is_valid_api_key
             except ImportError:
+
                 def is_valid_api_key(key):
                     if not key or len(key) <= 10:
                         return False
-                    if key.startswith('your_') or key.startswith('your-'):
+                    if key.startswith("your_") or key.startswith("your-"):
                         return False
-                    if key.endswith('_here') or key.endswith('-here'):
+                    if key.endswith("_here") or key.endswith("-here"):
                         return False
-                    if '...' in key:
+                    if "..." in key:
                         return False
                     return True
 
             # 从环境变量读取 API Key
             env_api_key = os.getenv(api_key_env_var)
-            logger.info(f"🔍 [{provider_name}初始化] 从环境变量读取 {api_key_env_var}: {'有值' if env_api_key else '空'}")
+            logger.info(
+                f"🔍 [{provider_name}初始化] 从环境变量读取 {api_key_env_var}: {'有值' if env_api_key else '空'}"
+            )
 
             # 验证环境变量中的 API Key 是否有效（排除占位符）
             if env_api_key and is_valid_api_key(env_api_key):
-                logger.info(f"✅ [{provider_name}初始化] 环境变量中的 API Key 有效，长度: {len(env_api_key)}, 前10位: {env_api_key[:10]}...")
+                logger.info(
+                    f"✅ [{provider_name}初始化] 环境变量中的 API Key 有效，长度: {len(env_api_key)}, 前10位: {env_api_key[:10]}..."
+                )
                 api_key = env_api_key
             elif env_api_key:
                 logger.warning(f"⚠️ [{provider_name}初始化] 环境变量中的 API Key 无效（可能是占位符），将被忽略")
@@ -110,30 +118,24 @@ class OpenAICompatibleBase(ChatOpenAI):
                 )
         else:
             logger.info(f"✅ [{provider_name}初始化] 使用传入的 API Key（来自数据库配置），长度: {len(api_key)}")
-        
+
         # 设置OpenAI兼容参数
         # 注意：model参数会被Pydantic映射到model_name字段
         openai_kwargs = {
             "model": model,  # 这会被映射到model_name字段
             "temperature": temperature,
             "max_tokens": max_tokens,
-            **kwargs
+            **kwargs,
         }
-        
+
         # 根据LangChain版本使用不同的参数名
         try:
             # 新版本LangChain
-            openai_kwargs.update({
-                "api_key": api_key,
-                "base_url": base_url
-            })
+            openai_kwargs.update({"api_key": api_key, "base_url": base_url})
         except:
             # 旧版本LangChain
-            openai_kwargs.update({
-                "openai_api_key": api_key,
-                "openai_api_base": base_url
-            })
-        
+            openai_kwargs.update({"openai_api_key": api_key, "openai_api_base": base_url})
+
         # 初始化父类
         super().__init__(**openai_kwargs)
 
@@ -146,35 +148,35 @@ class OpenAICompatibleBase(ChatOpenAI):
         logger.info(f"   API Base: {base_url}")
 
     @property
-    def provider_name(self) -> Optional[str]:
+    def provider_name(self) -> str | None:
         return getattr(self, "_provider_name", None)
 
     # 移除model_name property定义，使用Pydantic字段
     # model_name字段由ChatOpenAI基类的Pydantic字段提供
-    
+
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         """
         生成聊天响应，并记录token使用量
         """
-        
+
         # 记录开始时间
         start_time = time.time()
-        
+
         # 调用父类生成方法
         result = super()._generate(messages, stop, run_manager, **kwargs)
-        
+
         # 记录token使用
         self._track_token_usage(result, kwargs, start_time)
-        
+
         return result
 
-    def _track_token_usage(self, result: ChatResult, kwargs: Dict, start_time: float):
+    def _track_token_usage(self, result: ChatResult, kwargs: dict, start_time: float):
         """记录token使用量并输出日志"""
         if not TOKEN_TRACKING_ENABLED:
             return
@@ -196,14 +198,14 @@ class OpenAICompatibleBase(ChatOpenAI):
 
 class ChatDeepSeekOpenAI(OpenAICompatibleBase):
     """DeepSeek OpenAI兼容适配器"""
-    
+
     def __init__(
         self,
         model: str = "deepseek-chat",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         temperature: float = 0.1,
-        max_tokens: Optional[int] = None,
-        **kwargs
+        max_tokens: int | None = None,
+        **kwargs,
     ):
         super().__init__(
             provider_name="deepseek",
@@ -213,20 +215,20 @@ class ChatDeepSeekOpenAI(OpenAICompatibleBase):
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
-            **kwargs
+            **kwargs,
         )
 
 
 class ChatDashScopeOpenAIUnified(OpenAICompatibleBase):
     """阿里百炼 DashScope OpenAI兼容适配器"""
-    
+
     def __init__(
         self,
         model: str = "qwen-turbo",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         temperature: float = 0.1,
-        max_tokens: Optional[int] = None,
-        **kwargs
+        max_tokens: int | None = None,
+        **kwargs,
     ):
         super().__init__(
             provider_name="dashscope",
@@ -236,20 +238,20 @@ class ChatDashScopeOpenAIUnified(OpenAICompatibleBase):
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
-            **kwargs
+            **kwargs,
         )
 
 
 class ChatQianfanOpenAI(OpenAICompatibleBase):
     """文心一言千帆平台 OpenAI兼容适配器"""
-    
+
     def __init__(
         self,
         model: str = "ernie-3.5-8k",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         temperature: float = 0.1,
-        max_tokens: Optional[int] = None,
-        **kwargs
+        max_tokens: int | None = None,
+        **kwargs,
     ):
         # 千帆新一代API使用单一API Key认证
         # 格式: bce-v3/ALTAK-xxx/xxx
@@ -260,18 +262,19 @@ class ChatQianfanOpenAI(OpenAICompatibleBase):
             try:
                 from app.utils.api_key_utils import is_valid_api_key
             except ImportError:
+
                 def is_valid_api_key(key):
                     if not key or len(key) <= 10:
                         return False
-                    if key.startswith('your_') or key.startswith('your-'):
+                    if key.startswith("your_") or key.startswith("your-"):
                         return False
-                    if key.endswith('_here') or key.endswith('-here'):
+                    if key.endswith("_here") or key.endswith("-here"):
                         return False
-                    if '...' in key:
+                    if "..." in key:
                         return False
                     return True
 
-            env_api_key = os.getenv('QIANFAN_API_KEY')
+            env_api_key = os.getenv("QIANFAN_API_KEY")
             if env_api_key and is_valid_api_key(env_api_key):
                 qianfan_api_key = env_api_key
             else:
@@ -286,11 +289,9 @@ class ChatQianfanOpenAI(OpenAICompatibleBase):
                 "格式为: bce-v3/ALTAK-xxx/xxx"
             )
 
-        if not qianfan_api_key.startswith('bce-v3/'):
-            raise ValueError(
-                "QIANFAN_API_KEY格式错误，应为: bce-v3/ALTAK-xxx/xxx"
-            )
-        
+        if not qianfan_api_key.startswith("bce-v3/"):
+            raise ValueError("QIANFAN_API_KEY格式错误，应为: bce-v3/ALTAK-xxx/xxx")
+
         super().__init__(
             provider_name="qianfan",
             model=model,
@@ -299,26 +300,26 @@ class ChatQianfanOpenAI(OpenAICompatibleBase):
             api_key=qianfan_api_key,
             temperature=temperature,
             max_tokens=max_tokens,
-            **kwargs
+            **kwargs,
         )
-    
+
     def _estimate_tokens(self, text: str) -> int:
         """估算文本的token数量（千帆模型专用）"""
         # 千帆模型的token估算：中文约1.5字符/token，英文约4字符/token
         # 保守估算：2字符/token
         return max(1, len(text) // 2)
-    
-    def _truncate_messages(self, messages: List[BaseMessage], max_tokens: int = 4500) -> List[BaseMessage]:
+
+    def _truncate_messages(self, messages: list[BaseMessage], max_tokens: int = 4500) -> list[BaseMessage]:
         """截断消息以适应千帆模型的token限制"""
         # 为千帆模型预留一些token空间，使用4500而不是5120
         truncated_messages = []
         total_tokens = 0
-        
+
         # 从最后一条消息开始，向前保留消息
         for message in reversed(messages):
-            content = str(message.content) if hasattr(message, 'content') else str(message)
+            content = str(message.content) if hasattr(message, "content") else str(message)
             message_tokens = self._estimate_tokens(content)
-            
+
             if total_tokens + message_tokens <= max_tokens:
                 truncated_messages.insert(0, message)
                 total_tokens += message_tokens
@@ -328,54 +329,54 @@ class ChatQianfanOpenAI(OpenAICompatibleBase):
                     remaining_tokens = max_tokens - 100  # 预留100个token
                     max_chars = remaining_tokens * 2  # 2字符/token
                     truncated_content = content[:max_chars] + "...(内容已截断)"
-                    
+
                     # 创建截断后的消息
-                    if hasattr(message, 'content'):
+                    if hasattr(message, "content"):
                         message.content = truncated_content
                     truncated_messages.insert(0, message)
                 break
-        
+
         if len(truncated_messages) < len(messages):
             logger.warning(f"⚠️ 千帆模型输入过长，已截断 {len(messages) - len(truncated_messages)} 条消息")
-        
+
         return truncated_messages
-    
+
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         """生成聊天响应，包含千帆模型的token截断逻辑"""
-        
+
         # 对千帆模型进行输入token截断
         truncated_messages = self._truncate_messages(messages)
-        
+
         # 调用父类的_generate方法
         return super()._generate(truncated_messages, stop, run_manager, **kwargs)
 
 
 class ChatZhipuOpenAI(OpenAICompatibleBase):
     """智谱AI GLM OpenAI兼容适配器"""
-    
+
     def __init__(
         self,
         model: str = "glm-4.6",
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         temperature: float = 0.1,
-        max_tokens: Optional[int] = None,
-        **kwargs
+        max_tokens: int | None = None,
+        **kwargs,
     ):
         if base_url is None:
             env_base_url = os.getenv("ZHIPU_BASE_URL")
             # 只使用有效的环境变量值（不是占位符）
-            if env_base_url and not env_base_url.startswith('your_') and not env_base_url.startswith('your-'):
+            if env_base_url and not env_base_url.startswith("your_") and not env_base_url.startswith("your-"):
                 base_url = env_base_url
             else:
                 base_url = "https://open.bigmodel.cn/api/paas/v4"
-                
+
         super().__init__(
             provider_name="zhipu",
             model=model,
@@ -384,9 +385,9 @@ class ChatZhipuOpenAI(OpenAICompatibleBase):
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
-            **kwargs
+            **kwargs,
         )
-    
+
     def _estimate_tokens(self, text: str) -> int:
         """估算文本的token数量（GLM模型专用）"""
         # GLM模型的token估算：中文约1.5字符/token，英文约4字符/token
@@ -400,17 +401,17 @@ class ChatCustomOpenAI(OpenAICompatibleBase):
     def __init__(
         self,
         model: str = "gpt-3.5-turbo",
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         temperature: float = 0.1,
-        max_tokens: Optional[int] = None,
-        **kwargs
+        max_tokens: int | None = None,
+        **kwargs,
     ):
         # 如果没有传入 base_url，尝试从环境变量读取
         if base_url is None:
             env_base_url = os.getenv("CUSTOM_OPENAI_BASE_URL")
             # 只使用有效的环境变量值（不是占位符）
-            if env_base_url and not env_base_url.startswith('your_') and not env_base_url.startswith('your-'):
+            if env_base_url and not env_base_url.startswith("your_") and not env_base_url.startswith("your-"):
                 base_url = env_base_url
             else:
                 base_url = "https://api.openai.com/v1"
@@ -423,7 +424,7 @@ class ChatCustomOpenAI(OpenAICompatibleBase):
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
-            **kwargs
+            **kwargs,
         )
 
 
@@ -435,8 +436,8 @@ OPENAI_COMPATIBLE_PROVIDERS = {
         "api_key_env": "DEEPSEEK_API_KEY",
         "models": {
             "deepseek-chat": {"context_length": 32768, "supports_function_calling": True},
-            "deepseek-coder": {"context_length": 16384, "supports_function_calling": True}
-        }
+            "deepseek-coder": {"context_length": 16384, "supports_function_calling": True},
+        },
     },
     "dashscope": {
         "adapter_class": ChatDashScopeOpenAIUnified,
@@ -447,8 +448,8 @@ OPENAI_COMPATIBLE_PROVIDERS = {
             "qwen-plus": {"context_length": 32768, "supports_function_calling": True},
             "qwen-plus-latest": {"context_length": 32768, "supports_function_calling": True},
             "qwen-max": {"context_length": 32768, "supports_function_calling": True},
-            "qwen-max-latest": {"context_length": 32768, "supports_function_calling": True}
-        }
+            "qwen-max-latest": {"context_length": 32768, "supports_function_calling": True},
+        },
     },
     "qianfan": {
         "adapter_class": ChatQianfanOpenAI,
@@ -458,8 +459,8 @@ OPENAI_COMPATIBLE_PROVIDERS = {
             "ernie-3.5-8k": {"context_length": 5120, "supports_function_calling": True},
             "ernie-4.0-turbo-8k": {"context_length": 5120, "supports_function_calling": True},
             "ERNIE-Speed-8K": {"context_length": 5120, "supports_function_calling": True},
-            "ERNIE-Lite-8K": {"context_length": 5120, "supports_function_calling": True}
-        }
+            "ERNIE-Lite-8K": {"context_length": 5120, "supports_function_calling": True},
+        },
     },
     "zhipu": {
         "adapter_class": ChatZhipuOpenAI,
@@ -469,8 +470,8 @@ OPENAI_COMPATIBLE_PROVIDERS = {
             "glm-4.6": {"context_length": 200000, "supports_function_calling": True},
             "glm-4": {"context_length": 128000, "supports_function_calling": True},
             "glm-4-plus": {"context_length": 128000, "supports_function_calling": True},
-            "glm-3-turbo": {"context_length": 128000, "supports_function_calling": True}
-        }
+            "glm-3-turbo": {"context_length": 128000, "supports_function_calling": True},
+        },
     },
     "custom_openai": {
         "adapter_class": ChatCustomOpenAI,
@@ -491,20 +492,20 @@ OPENAI_COMPATIBLE_PROVIDERS = {
             "llama-3.1-8b": {"context_length": 128000, "supports_function_calling": True},
             "llama-3.1-70b": {"context_length": 128000, "supports_function_calling": True},
             "llama-3.1-405b": {"context_length": 128000, "supports_function_calling": True},
-            "custom-model": {"context_length": 32768, "supports_function_calling": True}
-        }
-    }
+            "custom-model": {"context_length": 32768, "supports_function_calling": True},
+        },
+    },
 }
 
 
 def create_openai_compatible_llm(
     provider: str,
     model: str,
-    api_key: Optional[str] = None,
+    api_key: str | None = None,
     temperature: float = 0.1,
-    max_tokens: Optional[int] = None,
-    base_url: Optional[str] = None,
-    **kwargs
+    max_tokens: int | None = None,
+    base_url: str | None = None,
+    **kwargs,
 ) -> OpenAICompatibleBase:
     """创建OpenAI兼容LLM实例的统一工厂函数"""
     provider_info = OPENAI_COMPATIBLE_PROVIDERS.get(provider)

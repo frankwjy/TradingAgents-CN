@@ -1,11 +1,11 @@
+import getpass
+import os
+import re
+import warnings
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
-import os
-import warnings
-import re
-import getpass
-from pathlib import Path
 
 # Legacy env var aliases (deprecated): map API_HOST/PORT/DEBUG -> HOST/PORT/DEBUG
 _LEGACY_ENV_ALIASES = {
@@ -22,13 +22,14 @@ for _legacy, _new in _LEGACY_ENV_ALIASES.items():
             stacklevel=2,
         )
 
+
 class Settings(BaseSettings):
     # 基础配置
     DEBUG: bool = Field(default=True)
     HOST: str = Field(default="0.0.0.0")
     PORT: int = Field(default=8000)
-    ALLOWED_ORIGINS: List[str] = Field(default_factory=lambda: ["*"])
-    ALLOWED_HOSTS: List[str] = Field(default_factory=lambda: ["*"])
+    ALLOWED_ORIGINS: list[str] = Field(default_factory=lambda: ["*"])
+    ALLOWED_HOSTS: list[str] = Field(default_factory=lambda: ["*"])
 
     # MongoDB配置
     MONGODB_HOST: str = Field(default="localhost")
@@ -44,7 +45,7 @@ class Settings(BaseSettings):
     MONGO_MIN_CONNECTIONS: int = Field(default=10)
     # MongoDB超时参数（毫秒）- 用于处理大量历史数据
     MONGO_CONNECT_TIMEOUT_MS: int = Field(default=30000)  # 连接超时：30秒（原为10秒）
-    MONGO_SOCKET_TIMEOUT_MS: int = Field(default=60000)   # 套接字超时：60秒（原为20秒）
+    MONGO_SOCKET_TIMEOUT_MS: int = Field(default=60000)  # 套接字超时：60秒（原为20秒）
     MONGO_SERVER_SELECTION_TIMEOUT_MS: int = Field(default=5000)  # 服务器选择超时：5秒
 
     @property
@@ -131,7 +132,6 @@ class Settings(BaseSettings):
     QUEUE_MAX_RETRIES: int = Field(default=3)
     WORKER_HEARTBEAT_INTERVAL: int = Field(default=30)  # 30秒
 
-
     # 队列轮询/清理间隔（秒）
     QUEUE_POLL_INTERVAL_SECONDS: float = Field(default=1.0)
     QUEUE_CLEANUP_INTERVAL_SECONDS: float = Field(default=60.0)
@@ -185,18 +185,15 @@ class Settings(BaseSettings):
     SSE_BATCH_POLL_INTERVAL_SECONDS: float = Field(default=2.0)
     SSE_BATCH_MAX_IDLE_SECONDS: int = Field(default=600)
 
-
     # 监控配置
     METRICS_ENABLED: bool = Field(default=True)
     HEALTH_CHECK_INTERVAL: int = Field(default=60)  # 60秒
-
 
     # 配置真相来源（方案A）：file|db|hybrid
     # - file：以文件/env 为准（推荐，生产缺省）
     # - db：以数据库为准（仅兼容旧版，不推荐）
     # - hybrid：文件/env 优先，DB 作为兜底
     CONFIG_SOT: str = Field(default="file")
-
 
     # 基础信息同步任务配置（可配置调度）
     SYNC_STOCK_BASICS_ENABLED: bool = Field(default=True)
@@ -210,8 +207,7 @@ class Settings(BaseSettings):
     # 实时行情入库任务
     QUOTES_INGEST_ENABLED: bool = Field(default=True)
     QUOTES_INGEST_INTERVAL_SECONDS: int = Field(
-        default=360,
-        description="实时行情采集间隔（秒）。默认360秒（6分钟），免费用户建议>=300秒，付费用户可设置5-60秒"
+        default=360, description="实时行情采集间隔（秒）。默认360秒（6分钟），免费用户建议>=300秒，付费用户可设置5-60秒"
     )
     # 休市期/启动兜底补数（填充上一笔快照）
     QUOTES_BACKFILL_ON_STARTUP: bool = Field(default=True)
@@ -219,16 +215,13 @@ class Settings(BaseSettings):
 
     # 实时行情接口轮换配置
     QUOTES_ROTATION_ENABLED: bool = Field(
-        default=True,
-        description="启用接口轮换机制（Tushare → AKShare东方财富 → AKShare新浪财经）"
+        default=True, description="启用接口轮换机制（Tushare → AKShare东方财富 → AKShare新浪财经）"
     )
     QUOTES_TUSHARE_HOURLY_LIMIT: int = Field(
-        default=2,
-        description="Tushare rt_k接口每小时调用次数限制（免费用户2次，付费用户可设置更高）"
+        default=2, description="Tushare rt_k接口每小时调用次数限制（免费用户2次，付费用户可设置更高）"
     )
     QUOTES_AUTO_DETECT_TUSHARE_PERMISSION: bool = Field(
-        default=True,
-        description="自动检测Tushare rt_k接口权限，付费用户自动切换到高频模式（5秒）"
+        default=True, description="自动检测Tushare rt_k接口权限，付费用户自动切换到高频模式（5秒）"
     )
 
     # Tushare基础配置
@@ -260,9 +253,13 @@ class Settings(BaseSettings):
     AKSHARE_BASIC_INFO_SYNC_ENABLED: bool = Field(default=True, description="启用基础信息同步")
     AKSHARE_BASIC_INFO_SYNC_CRON: str = Field(default="0 3 * * *", description="基础信息同步CRON表达式")  # 每日凌晨3点
     AKSHARE_QUOTES_SYNC_ENABLED: bool = Field(default=True, description="启用行情同步")
-    AKSHARE_QUOTES_SYNC_CRON: str = Field(default="*/30 9-15 * * 1-5", description="行情同步CRON表达式")  # 交易时间每30分钟（避免频率限制）
+    AKSHARE_QUOTES_SYNC_CRON: str = Field(
+        default="*/30 9-15 * * 1-5", description="行情同步CRON表达式"
+    )  # 交易时间每30分钟（避免频率限制）
     AKSHARE_HISTORICAL_SYNC_ENABLED: bool = Field(default=True, description="启用历史数据同步")
-    AKSHARE_HISTORICAL_SYNC_CRON: str = Field(default="0 17 * * 1-5", description="历史数据同步CRON表达式")  # 工作日17点
+    AKSHARE_HISTORICAL_SYNC_CRON: str = Field(
+        default="0 17 * * 1-5", description="历史数据同步CRON表达式"
+    )  # 工作日17点
     AKSHARE_FINANCIAL_SYNC_ENABLED: bool = Field(default=True, description="启用财务数据同步")
     AKSHARE_FINANCIAL_SYNC_CRON: str = Field(default="0 4 * * 0", description="财务数据同步CRON表达式")  # 周日凌晨4点
     AKSHARE_STATUS_CHECK_ENABLED: bool = Field(default=True, description="启用状态检查")
@@ -287,10 +284,16 @@ class Settings(BaseSettings):
     # BaoStock数据同步任务配置
     BAOSTOCK_BASIC_INFO_SYNC_ENABLED: bool = Field(default=True, description="启用基础信息同步")
     BAOSTOCK_BASIC_INFO_SYNC_CRON: str = Field(default="0 4 * * *", description="基础信息同步CRON表达式")  # 每日凌晨4点
-    BAOSTOCK_DAILY_QUOTES_SYNC_ENABLED: bool = Field(default=True, description="启用日K线同步（注意：BaoStock不支持实时行情）")
-    BAOSTOCK_DAILY_QUOTES_SYNC_CRON: str = Field(default="0 16 * * 1-5", description="日K线同步CRON表达式")  # 工作日收盘后16:00
+    BAOSTOCK_DAILY_QUOTES_SYNC_ENABLED: bool = Field(
+        default=True, description="启用日K线同步（注意：BaoStock不支持实时行情）"
+    )
+    BAOSTOCK_DAILY_QUOTES_SYNC_CRON: str = Field(
+        default="0 16 * * 1-5", description="日K线同步CRON表达式"
+    )  # 工作日收盘后16:00
     BAOSTOCK_HISTORICAL_SYNC_ENABLED: bool = Field(default=True, description="启用历史数据同步")
-    BAOSTOCK_HISTORICAL_SYNC_CRON: str = Field(default="0 18 * * 1-5", description="历史数据同步CRON表达式")  # 工作日18点
+    BAOSTOCK_HISTORICAL_SYNC_CRON: str = Field(
+        default="0 18 * * 1-5", description="历史数据同步CRON表达式"
+    )  # 工作日18点
     BAOSTOCK_STATUS_CHECK_ENABLED: bool = Field(default=True, description="启用状态检查")
     BAOSTOCK_STATUS_CHECK_CRON: str = Field(default="45 * * * *", description="状态检查CRON表达式")  # 每小时45分
 
@@ -333,6 +336,7 @@ class Settings(BaseSettings):
     # Ignore any extra environment variables present in .env or process env
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
+
 settings = Settings()
 
 
@@ -350,7 +354,11 @@ def _read_major_version() -> str:
 
 def _default_instance_tag() -> str:
     user = os.getenv("TRADINGAGENTS_DB_USER", "").strip() or getpass.getuser()
-    host = os.getenv("TRADINGAGENTS_DB_HOST", "").strip() or os.getenv("COMPUTERNAME", "").strip() or os.getenv("HOSTNAME", "").strip()
+    host = (
+        os.getenv("TRADINGAGENTS_DB_HOST", "").strip()
+        or os.getenv("COMPUTERNAME", "").strip()
+        or os.getenv("HOSTNAME", "").strip()
+    )
     tag = f"{user}-{host}" if host else user
     return _sanitize_mongo_db_name(tag).strip("_-").lower() or "local"
 
@@ -366,16 +374,17 @@ def _sanitize_mongo_db_name(name: str) -> str:
         return cleaned
 
     suffix = str(abs(hash(cleaned)) % (10**8)).rjust(8, "0")
-    return f"{cleaned[:max_len-9]}_{suffix}"
+    return f"{cleaned[: max_len - 9]}_{suffix}"
+
 
 # 自动将代理配置设置到环境变量
 # 这样 requests 库可以直接读取 os.environ['NO_PROXY']
 if settings.HTTP_PROXY:
-    os.environ['HTTP_PROXY'] = settings.HTTP_PROXY
+    os.environ["HTTP_PROXY"] = settings.HTTP_PROXY
 if settings.HTTPS_PROXY:
-    os.environ['HTTPS_PROXY'] = settings.HTTPS_PROXY
+    os.environ["HTTPS_PROXY"] = settings.HTTPS_PROXY
 if settings.NO_PROXY:
-    os.environ['NO_PROXY'] = settings.NO_PROXY
+    os.environ["NO_PROXY"] = settings.NO_PROXY
 
 
 def get_settings() -> Settings:

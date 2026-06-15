@@ -1,8 +1,8 @@
 import logging
-from datetime import datetime, time as dtime, timedelta
-from typing import Dict, Optional, Tuple, List
-from zoneinfo import ZoneInfo
 from collections import deque
+from datetime import datetime, timedelta
+from datetime import time as dtime
+from zoneinfo import ZoneInfo
 
 from pymongo import UpdateOne
 
@@ -26,7 +26,6 @@ class QuotesIngestionService:
     """
 
     def __init__(self, collection_name: str = "market_quotes") -> None:
-        from collections import deque
 
         self.collection_name = collection_name
         self.status_collection_name = "quotes_ingestion_status"  # 状态记录集合
@@ -69,15 +68,15 @@ class QuotesIngestionService:
         # 如果代码长度超过6位，去掉前面的交易所前缀（如 sz, sh）
         if len(code_str) > 6:
             # 提取所有数字字符
-            code_str = ''.join(filter(str.isdigit, code_str))
+            code_str = "".join(filter(str.isdigit, code_str))
 
         # 如果是纯数字，补齐到6位
         if code_str.isdigit():
-            code_clean = code_str.lstrip('0') or '0'  # 移除前导0，如果全是0则保留一个0
+            code_clean = code_str.lstrip("0") or "0"  # 移除前导0，如果全是0则保留一个0
             return code_clean.zfill(6)  # 补齐到6位
 
         # 如果不是纯数字，尝试提取数字部分
-        code_digits = ''.join(filter(str.isdigit, code_str))
+        code_digits = "".join(filter(str.isdigit, code_str))
         if code_digits:
             return code_digits.zfill(6)
 
@@ -94,11 +93,7 @@ class QuotesIngestionService:
             logger.warning(f"创建行情表索引失败（忽略）: {e}")
 
     async def _record_sync_status(
-        self,
-        success: bool,
-        source: Optional[str] = None,
-        records_count: int = 0,
-        error_msg: Optional[str] = None
+        self, success: bool, source: str | None = None, records_count: int = 0, error_msg: str | None = None
     ) -> None:
         """
         记录同步状态
@@ -127,16 +122,12 @@ class QuotesIngestionService:
                 "updated_at": now,
             }
 
-            await status_coll.update_one(
-                {"job": "quotes_ingestion"},
-                {"$set": status_doc},
-                upsert=True
-            )
+            await status_coll.update_one({"job": "quotes_ingestion"}, {"$set": status_doc}, upsert=True)
 
         except Exception as e:
             logger.warning(f"记录同步状态失败（忽略）: {e}")
 
-    async def get_sync_status(self) -> Dict[str, any]:
+    async def get_sync_status(self) -> dict[str, any]:
         """
         获取同步状态
 
@@ -167,7 +158,7 @@ class QuotesIngestionService:
                     "data_source": None,
                     "success": None,
                     "records_count": 0,
-                    "error_message": "尚未执行过同步"
+                    "error_message": "尚未执行过同步",
                 }
 
             # 移除 _id 字段
@@ -201,7 +192,7 @@ class QuotesIngestionService:
                 "data_source": None,
                 "success": None,
                 "records_count": 0,
-                "error_message": f"获取状态失败: {str(e)}"
+                "error_message": f"获取状态失败: {str(e)}",
             }
 
     def _check_tushare_permission(self) -> bool:
@@ -217,6 +208,7 @@ class QuotesIngestionService:
 
         try:
             from app.services.data_sources.tushare_adapter import TushareAdapter
+
             adapter = TushareAdapter()
 
             if not adapter.is_available():
@@ -227,8 +219,8 @@ class QuotesIngestionService:
 
             # 尝试调用 rt_k 接口测试权限
             try:
-                df = adapter._provider.api.rt_k(ts_code='000001.SZ')
-                if df is not None and not getattr(df, 'empty', True):
+                df = adapter._provider.api.rt_k(ts_code="000001.SZ")
+                if df is not None and not getattr(df, "empty", True):
                     logger.info("✅ 检测到 Tushare rt_k 接口权限（付费用户）")
                     self._tushare_has_premium = True
                 else:
@@ -286,7 +278,7 @@ class QuotesIngestionService:
         """记录 Tushare 调用时间"""
         self._tushare_call_times.append(datetime.now(self.tz))
 
-    def _get_next_source(self) -> Tuple[str, Optional[str]]:
+    def _get_next_source(self) -> tuple[str, str | None]:
         """
         获取下一个数据源（轮换机制）
 
@@ -312,7 +304,7 @@ class QuotesIngestionService:
         else:  # akshare_sina
             return "akshare", "sina"
 
-    def _is_trading_time(self, now: Optional[datetime] = None) -> bool:
+    def _is_trading_time(self, now: datetime | None = None) -> bool:
         """
         判断是否在交易时间或收盘后缓冲期
 
@@ -349,7 +341,7 @@ class QuotesIngestionService:
         except Exception:
             return True
 
-    async def _collection_stale(self, latest_trade_date: Optional[str]) -> bool:
+    async def _collection_stale(self, latest_trade_date: str | None) -> bool:
         if not latest_trade_date:
             return False
         db = get_mongo_db()
@@ -364,7 +356,7 @@ class QuotesIngestionService:
         except Exception:
             return True
 
-    async def _bulk_upsert(self, quotes_map: Dict[str, Dict], trade_date: str, source: Optional[str] = None) -> None:
+    async def _bulk_upsert(self, quotes_map: dict[str, dict], trade_date: str, source: str | None = None) -> None:
         db = get_mongo_db()
         coll = db[self.collection_name]
         ops = []
@@ -380,25 +372,29 @@ class QuotesIngestionService:
             # 🔥 日志：记录写入的成交量值
             volume = q.get("volume")
             if code6 in ["300750", "000001", "600000"]:  # 只记录几个示例股票
-                logger.info(f"📊 [写入market_quotes] {code6} - volume={volume}, amount={q.get('amount')}, source={source}")
+                logger.info(
+                    f"📊 [写入market_quotes] {code6} - volume={volume}, amount={q.get('amount')}, source={source}"
+                )
 
             ops.append(
                 UpdateOne(
                     {"code": code6},
-                    {"$set": {
-                        "code": code6,
-                        "symbol": code6,  # 添加 symbol 字段，与 code 保持一致
-                        "close": q.get("close"),
-                        "pct_chg": q.get("pct_chg"),
-                        "amount": q.get("amount"),
-                        "volume": volume,
-                        "open": q.get("open"),
-                        "high": q.get("high"),
-                        "low": q.get("low"),
-                        "pre_close": q.get("pre_close"),
-                        "trade_date": trade_date,
-                        "updated_at": updated_at,
-                    }},
+                    {
+                        "$set": {
+                            "code": code6,
+                            "symbol": code6,  # 添加 symbol 字段，与 code 保持一致
+                            "close": q.get("close"),
+                            "pct_chg": q.get("pct_chg"),
+                            "amount": q.get("amount"),
+                            "volume": volume,
+                            "open": q.get("open"),
+                            "high": q.get("high"),
+                            "low": q.get("low"),
+                            "pre_close": q.get("pre_close"),
+                            "trade_date": trade_date,
+                            "updated_at": updated_at,
+                        }
+                    },
                     upsert=True,
                 )
             )
@@ -445,10 +441,7 @@ class QuotesIngestionService:
 
             # 从 stock_daily_quotes 集合查询最新交易日的数据
             daily_quotes_collection = db["stock_daily_quotes"]
-            cursor = daily_quotes_collection.find({
-                "trade_date": latest_trade_date,
-                "period": "daily"
-            })
+            cursor = daily_quotes_collection.find({"trade_date": latest_trade_date, "period": "daily"})
 
             docs = await cursor.to_list(length=None)
 
@@ -473,7 +466,9 @@ class QuotesIngestionService:
 
                 # 🔥 日志：记录原始成交量值
                 if code6 in ["300750", "000001", "600000"]:  # 只记录几个示例股票
-                    logger.info(f"📊 [回填] {code6} - volume={doc.get('volume')}, vol={doc.get('vol')}, data_source={data_source}")
+                    logger.info(
+                        f"📊 [回填] {code6} - volume={doc.get('volume')}, vol={doc.get('vol')}, data_source={data_source}"
+                    )
 
                 quotes_map[code6] = {
                     "close": doc.get("close"),
@@ -495,6 +490,7 @@ class QuotesIngestionService:
         except Exception as e:
             logger.error(f"❌ 从历史数据导入失败: {e}")
             import traceback
+
             logger.error(f"堆栈跟踪:\n{traceback.format_exc()}")
 
     async def backfill_last_close_snapshot(self) -> None:
@@ -540,7 +536,9 @@ class QuotesIngestionService:
         except Exception as e:
             logger.warning(f"backfill 触发检查失败（忽略）: {e}")
 
-    def _fetch_quotes_from_source(self, source_type: str, akshare_api: Optional[str] = None) -> Tuple[Optional[Dict], Optional[str]]:
+    def _fetch_quotes_from_source(
+        self, source_type: str, akshare_api: str | None = None
+    ) -> tuple[dict | None, str | None]:
         """
         从指定数据源获取行情
 
@@ -558,6 +556,7 @@ class QuotesIngestionService:
                     return None, None
 
                 from app.services.data_sources.tushare_adapter import TushareAdapter
+
                 adapter = TushareAdapter()
 
                 if not adapter.is_available():
@@ -576,6 +575,7 @@ class QuotesIngestionService:
 
             elif source_type == "akshare":
                 from app.services.data_sources.akshare_adapter import AKShareAdapter
+
                 adapter = AKShareAdapter()
 
                 if not adapter.is_available():
@@ -643,10 +643,7 @@ class QuotesIngestionService:
                 logger.warning(f"⚠️ {source_name or source_type} 未获取到行情数据，跳过本次入库")
                 # 记录失败状态
                 await self._record_sync_status(
-                    success=False,
-                    source=source_name or source_type,
-                    records_count=0,
-                    error_msg="未获取到行情数据"
+                    success=False, source=source_name or source_type, records_count=0, error_msg="未获取到行情数据"
                 )
                 return
 
@@ -662,19 +659,10 @@ class QuotesIngestionService:
 
             # 记录成功状态
             await self._record_sync_status(
-                success=True,
-                source=source_name,
-                records_count=len(quotes_map),
-                error_msg=None
+                success=True, source=source_name, records_count=len(quotes_map), error_msg=None
             )
 
         except Exception as e:
             logger.error(f"❌ 行情入库失败: {e}")
             # 记录失败状态
-            await self._record_sync_status(
-                success=False,
-                source=None,
-                records_count=0,
-                error_msg=str(e)
-            )
-
+            await self._record_sync_status(success=False, source=None, records_count=0, error_msg=str(e))

@@ -2,10 +2,9 @@
 共享的文档指标处理函数
 - add_financial_metrics: 将日度基础指标（市值/估值/交易）追加到文档中
 """
-from typing import Dict
 
 
-def add_financial_metrics(doc: Dict, daily_metrics: Dict) -> None:
+def add_financial_metrics(doc: dict, daily_metrics: dict) -> None:
     """
     将财务与交易指标写入 doc（就地修改）。
     - 市值：total_mv/circ_mv（从万元转换为亿元）
@@ -48,4 +47,3 @@ def add_financial_metrics(doc: Dict, daily_metrics: Dict) -> None:
                     doc[field] = value
             except (ValueError, TypeError):
                 pass
-

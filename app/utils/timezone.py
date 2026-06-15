@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from typing import Optional
 
 from app.core.config import settings
 
@@ -15,6 +14,7 @@ def get_tz_name() -> str:
     try:
         # Lazy import to avoid circular imports
         from app.services.config_provider import provider as cfgprov  # type: ignore
+
         cached = getattr(cfgprov, "_cache_settings", None)
         if isinstance(cached, dict):
             tz = cached.get("app_timezone") or cached.get("APP_TIMEZONE")
@@ -34,7 +34,7 @@ def now_tz() -> datetime:
     return datetime.now(get_tz())
 
 
-def to_config_tz(dt: Optional[datetime]) -> Optional[datetime]:
+def to_config_tz(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
@@ -43,7 +43,7 @@ def to_config_tz(dt: Optional[datetime]) -> Optional[datetime]:
     return dt.astimezone(get_tz())
 
 
-def ensure_timezone(dt: Optional[datetime]) -> Optional[datetime]:
+def ensure_timezone(dt: datetime | None) -> datetime | None:
     """
     确保 datetime 对象包含时区信息
     如果没有时区信息，假定为配置的时区（默认 Asia/Shanghai）
@@ -54,4 +54,3 @@ def ensure_timezone(dt: Optional[datetime]) -> Optional[datetime]:
         # 如果没有时区信息，假定为配置的时区
         return dt.replace(tzinfo=get_tz())
     return dt
-
