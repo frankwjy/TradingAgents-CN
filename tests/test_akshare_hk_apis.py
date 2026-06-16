@@ -7,6 +7,7 @@ from datetime import datetime
 
 import akshare as ak
 import pandas as pd
+import pytest
 
 
 def print_separator(title):
@@ -16,6 +17,7 @@ def print_separator(title):
     print("=" * 80 + "\n")
 
 
+@pytest.mark.integration
 def test_api(api_name, api_func, *args, **kwargs):
     """测试单个API接口"""
     print(f"📊 测试接口: {api_name}")

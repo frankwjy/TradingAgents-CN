@@ -2,6 +2,7 @@ import io
 import json
 import logging
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -13,12 +14,14 @@ def _auth_headers() -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+@pytest.mark.integration
 def test_config_summary_requires_auth():
     client = TestClient(app)
     resp = client.get("/api/system/config/summary")
     assert resp.status_code == 401
 
 
+@pytest.mark.integration
 def test_config_summary_masks_sensitive_fields_with_auth():
     client = TestClient(app)
 

@@ -4,6 +4,8 @@
 验证系统启动所需的必需配置项，提供友好的错误提示。
 """
 
+from __future__ import annotations
+
 import logging
 import os
 from dataclasses import dataclass

@@ -28,6 +28,7 @@ def test_validate_pe_pb():
     assert validate_pe_pb(None, None) == True
 
 
+@pytest.mark.integration
 def test_calculate_realtime_pe_pb_with_mock_data(monkeypatch):
     """测试实时PE/PB计算（使用mock数据）"""
 
@@ -95,6 +96,7 @@ def test_calculate_realtime_pe_pb_missing_data(monkeypatch):
     assert result is None
 
 
+@pytest.mark.integration
 def test_get_pe_pb_with_fallback_success(monkeypatch):
     """测试带降级的获取函数（成功场景）"""
 
@@ -123,6 +125,7 @@ def test_get_pe_pb_with_fallback_success(monkeypatch):
     assert result["is_realtime"] == True
 
 
+@pytest.mark.integration
 def test_get_pe_pb_with_fallback_to_static(monkeypatch):
     """测试降级到静态数据"""
 
