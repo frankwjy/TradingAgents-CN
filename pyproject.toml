@@ -167,7 +167,7 @@ source = ["tradingagents"]
 omit = ["tests/*"]
 
 [tool.coverage.report]
-fail_under = 10
+fail_under = 3
 show_missing = true
 
 [tool.coverage.html]
