@@ -15,6 +15,7 @@ from unittest.mock import Mock
 def create_mock_message(has_tool_calls=False):
     """创建模拟消息"""
     message = Mock()
+    message.content = ""  # 添加content属性以支持len()调用
     if has_tool_calls:
         message.tool_calls = [{"name": "test_tool", "args": {}}]
     else:

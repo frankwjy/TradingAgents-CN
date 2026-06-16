@@ -122,7 +122,8 @@ class TestRetryDecorator:
 class TestAsyncRetryDecorator:
     """异步重试装饰器测试"""
 
-    def test_async_retry_success_on_first_attempt(self):
+    @pytest.mark.asyncio
+    async def test_async_retry_success_on_first_attempt(self):
         """测试异步第一次尝试就成功"""
         call_count = 0
 
@@ -132,11 +133,12 @@ class TestAsyncRetryDecorator:
             call_count += 1
             return "success"
 
-        result = asyncio.get_event_loop().run_until_complete(success_func())
+        result = await success_func()
         assert result == "success"
         assert call_count == 1
 
-    def test_async_retry_success_after_failures(self):
+    @pytest.mark.asyncio
+    async def test_async_retry_success_after_failures(self):
         """测试异步失败后重试成功"""
         call_count = 0
 
@@ -148,11 +150,12 @@ class TestAsyncRetryDecorator:
                 raise Exception("Temporary error")
             return "success"
 
-        result = asyncio.get_event_loop().run_until_complete(eventual_success())
+        result = await eventual_success()
         assert result == "success"
         assert call_count == 3
 
-    def test_async_retry_exhausted(self):
+    @pytest.mark.asyncio
+    async def test_async_retry_exhausted(self):
         """测试异步重试次数耗尽"""
         call_count = 0
 
@@ -163,7 +166,7 @@ class TestAsyncRetryDecorator:
             raise Exception("Permanent error")
 
         with pytest.raises(RetryExhaustedError):
-            asyncio.get_event_loop().run_until_complete(always_fail())
+            await always_fail()
 
         assert call_count == 3  # 1 initial + 2 retries
 
