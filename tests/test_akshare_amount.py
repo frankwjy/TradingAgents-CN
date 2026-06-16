@@ -55,7 +55,7 @@ async def test_akshare_amount():
     start_date = end_date - timedelta(days=5)
 
     hist_df = await provider.get_historical_data(
-        symbol=test_code, start_date=start_date, end_date=end_date, period="daily"
+        code=test_code, start_date=start_date, end_date=end_date, period="daily"
     )
 
     if hist_df is not None and not hist_df.empty:

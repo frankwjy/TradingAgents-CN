@@ -17,7 +17,7 @@ def test_fundamentals_analyst():
     print("=" * 80)
 
     # 导入必要的模块
-    from tradingagents.agents.trading_graph import create_trading_graph
+    from tradingagents.graph.trading_graph import create_trading_graph
 
     # 创建交易图
     print("\n1️⃣ 创建交易图...")
