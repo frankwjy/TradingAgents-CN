@@ -9,6 +9,7 @@ import json
 from typing import Any, Dict
 
 import requests
+import pytest
 
 # 配置
 BASE_URL = "http://localhost:8000"

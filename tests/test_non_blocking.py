@@ -9,6 +9,7 @@ import json
 import time
 
 import aiohttp
+import pytest
 
 
 async def test_non_blocking_analysis():

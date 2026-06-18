@@ -7,6 +7,7 @@ import json
 from datetime import datetime
 
 import requests
+import pytest
 
 
 def test_analysis_result():
