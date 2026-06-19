@@ -67,7 +67,7 @@ def test_config_manager():
         config_manager.save_pricing(pricing_configs)
 
         # 测试成本计算
-        cost = config_manager.calculate_cost("test_provider", "test_model", 1000, 500)
+        cost, currency = config_manager.calculate_cost("test_provider", "test_model", 1000, 500)
         expected_cost = (1000 / 1000) * 0.001 + (500 / 1000) * 0.002
         assert abs(cost - expected_cost) < 0.000001, f"成本计算错误: {cost} != {expected_cost}"
 
@@ -136,7 +136,7 @@ def test_token_tracker():
 
         # 测试成本估算
         print("📝 测试成本估算...")
-        estimated_cost = token_tracker.estimate_cost(
+        estimated_cost, currency = token_tracker.estimate_cost(
             provider="dashscope", model_name="qwen-turbo", estimated_input_tokens=1000, estimated_output_tokens=500
         )
 
@@ -169,7 +169,7 @@ def test_pricing_accuracy():
         ]
 
         for provider, model, input_tokens, output_tokens in test_cases:
-            cost = config_manager.calculate_cost(provider, model, input_tokens, output_tokens)
+            cost, currency = config_manager.calculate_cost(provider, model, input_tokens, output_tokens)
             print(f"📊 {provider} {model}: {input_tokens}+{output_tokens} tokens = ¥{cost:.6f}")
 
             # 验证成本计算逻辑

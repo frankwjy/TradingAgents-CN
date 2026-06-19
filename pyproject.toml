@@ -164,11 +164,24 @@ known-first-party = ["tradingagents", "app"]
 
 [tool.coverage.run]
 source = ["tradingagents"]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
 
 [tool.coverage.report]
-fail_under = 3
+fail_under = 5
 show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError",
+]
 
 [tool.coverage.html]
 directory = "htmlcov"

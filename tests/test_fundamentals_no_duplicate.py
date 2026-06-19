@@ -6,13 +6,10 @@ import os
 import sys
 from datetime import datetime
 
-import pytest
-
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-@pytest.mark.integration
 def test_fundamentals_analyst():
     """测试基本面分析师"""
     print("=" * 80)
@@ -20,11 +17,11 @@ def test_fundamentals_analyst():
     print("=" * 80)
 
     # 导入必要的模块
-    from tradingagents.graph.trading_graph import TradingAgentsGraph
+    from tradingagents.graph.trading_graph import create_trading_graph
 
     # 创建交易图
     print("\n1️⃣ 创建交易图...")
-    graph = TradingAgentsGraph()
+    graph = create_trading_graph()
 
     # 准备测试输入
     test_ticker = "000001"  # 平安银行

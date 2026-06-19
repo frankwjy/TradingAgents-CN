@@ -27,6 +27,7 @@ class TestConditionalLogicConfig:
         assert logic.max_debate_rounds == 3
         assert logic.max_risk_discuss_rounds == 2
 
+    @pytest.mark.integration
     def test_trading_graph_with_level_4_config(self):
         """测试 TradingGraph 使用4级深度配置"""
         config = DEFAULT_CONFIG.copy()
@@ -44,6 +45,7 @@ class TestConditionalLogicConfig:
             f"4级深度分析应该有2轮风险讨论，实际是{graph.conditional_logic.max_risk_discuss_rounds}"
         )
 
+    @pytest.mark.integration
     def test_trading_graph_with_level_5_config(self):
         """测试 TradingGraph 使用5级深度配置"""
         config = DEFAULT_CONFIG.copy()
@@ -61,6 +63,7 @@ class TestConditionalLogicConfig:
             f"5级全面分析应该有3轮风险讨论，实际是{graph.conditional_logic.max_risk_discuss_rounds}"
         )
 
+    @pytest.mark.integration
     def test_trading_graph_without_config(self):
         """测试 TradingGraph 不传配置时使用默认值"""
         graph = TradingAgentsGraph(selected_analysts=["market"])
@@ -69,6 +72,7 @@ class TestConditionalLogicConfig:
         assert graph.conditional_logic.max_debate_rounds == 1
         assert graph.conditional_logic.max_risk_discuss_rounds == 1
 
+    @pytest.mark.integration
     def test_trading_graph_with_partial_config(self):
         """测试 TradingGraph 部分配置"""
         config = DEFAULT_CONFIG.copy()
@@ -80,6 +84,7 @@ class TestConditionalLogicConfig:
         assert graph.conditional_logic.max_risk_discuss_rounds == 1  # 使用默认值
 
 
+@pytest.mark.integration
 class TestDebateRoundsProgression:
     """测试辩论轮次的递进关系"""
 
