@@ -34,10 +34,13 @@ def test_calculate_realtime_pe_pb_with_mock_data(monkeypatch):
 
     # Mock MongoDB数据
     class MockCollection:
+        def __init__(self, collection_type=""):
+            self.collection_type = collection_type
+
         def find_one(self, query):
             code = query.get("code")
             if code == "000001":
-                if "market_quotes" in str(self):
+                if self.collection_type == "market_quotes":
                     # 返回实时行情
                     return {"code": "000001", "close": 10.5, "updated_at": "2025-10-14T10:30:00"}
                 else:
@@ -52,7 +55,7 @@ def test_calculate_realtime_pe_pb_with_mock_data(monkeypatch):
 
     class MockDB:
         def __getitem__(self, name):
-            return MockCollection()
+            return MockCollection(name)
 
     class MockClient:
         def __getitem__(self, name):

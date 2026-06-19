@@ -584,12 +584,15 @@ class ConfigManager:
         # 过滤最近N天的记录
         from datetime import datetime, timedelta
 
-        cutoff_date = datetime.now() - timedelta(days=days)
+        cutoff_date = datetime.now(ZoneInfo(get_timezone_name())) - timedelta(days=days)
 
         recent_records = []
         for record in records:
             try:
                 record_date = datetime.fromisoformat(record.timestamp)
+                # 确保两个datetime对象都有时区信息或都没有
+                if record_date.tzinfo is None:
+                    record_date = record_date.replace(tzinfo=ZoneInfo(get_timezone_name()))
                 if record_date >= cutoff_date:
                     recent_records.append(record)
             except:
