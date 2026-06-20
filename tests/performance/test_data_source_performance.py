@@ -5,6 +5,7 @@ import pytest
 from typing import Dict, Any, Optional
 
 
+@pytest.mark.performance
 class TestDataSourcePerformance:
     """Test data source adapter performance"""
 

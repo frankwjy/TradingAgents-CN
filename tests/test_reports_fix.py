@@ -8,6 +8,7 @@ import time
 
 import requests
 from pymongo import MongoClient
+import pytest
 
 
 def test_reports_and_analysts_fix():

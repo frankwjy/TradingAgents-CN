@@ -5,9 +5,11 @@
 
 import json
 
+import pytest
 import requests
 
 
+@pytest.mark.integration
 def test_summary_recommendation():
     """测试summary和recommendation字段"""
     base_url = "http://localhost:8000"

@@ -10,9 +10,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import asyncio
 
+import pytest
+
 from tradingagents.dataflows.providers.china.akshare import get_akshare_provider
 
 
+@pytest.mark.integration
 async def test_akshare_amount():
     """测试 AKShare 成交额单位"""
     print("=" * 80)
@@ -55,7 +58,7 @@ async def test_akshare_amount():
     start_date = end_date - timedelta(days=5)
 
     hist_df = await provider.get_historical_data(
-        symbol=test_code, start_date=start_date, end_date=end_date, period="daily"
+        code=test_code, start_date=start_date, end_date=end_date, period="daily"
     )
 
     if hist_df is not None and not hist_df.empty:

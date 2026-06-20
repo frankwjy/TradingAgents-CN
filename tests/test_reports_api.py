@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 
 import requests
+import pytest
 
 
 def login_and_get_token(base_url):

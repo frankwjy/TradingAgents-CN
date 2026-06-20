@@ -92,6 +92,7 @@ qianfan = ["qianfan>=0.4.20"]
 dev = [
     "ruff>=0.4.0",
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
     "pytest-asyncio>=0.23.0",
 ]
 
@@ -160,3 +161,27 @@ known-first-party = ["tradingagents", "app"]
 "cli/**" = ["ALL"]
 "examples/**" = ["ALL"]
 "tests/**" = ["W291", "W293"]
+
+[tool.coverage.run]
+source = ["tradingagents"]
+omit = [
+    "tests/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+fail_under = 5
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

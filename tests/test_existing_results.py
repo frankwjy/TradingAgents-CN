@@ -9,6 +9,7 @@ import os
 import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
+import pytest
 
 
 def get_existing_task_ids():

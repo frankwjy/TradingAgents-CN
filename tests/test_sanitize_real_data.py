@@ -3,14 +3,21 @@
 """
 
 import json
+import os
+
+import pytest
 
 from app.services.database.backups import _sanitize_document
 
 
 def test_sanitize_real_export_file():
     """测试对真实导出文件的脱敏"""
+    test_file = "install/database_export_config_2025-10-25.json"
+    if not os.path.exists(test_file):
+        pytest.skip(f"测试文件 {test_file} 不存在")
+
     # 读取真实导出文件
-    with open("install/database_export_config_2025-10-25.json", encoding="utf-8") as f:
+    with open(test_file, encoding="utf-8") as f:
         export_data = json.load(f)
 
     # 对 data 部分进行脱敏

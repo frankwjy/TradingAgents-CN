@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 import requests
+import pytest
 
 
 def test_fixed_analysis():

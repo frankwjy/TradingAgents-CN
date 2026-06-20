@@ -132,7 +132,7 @@ class TestAsyncRetryDecorator:
             call_count += 1
             return "success"
 
-        result = asyncio.get_event_loop().run_until_complete(success_func())
+        result = asyncio.run(success_func())
         assert result == "success"
         assert call_count == 1
 
@@ -148,7 +148,7 @@ class TestAsyncRetryDecorator:
                 raise Exception("Temporary error")
             return "success"
 
-        result = asyncio.get_event_loop().run_until_complete(eventual_success())
+        result = asyncio.run(eventual_success())
         assert result == "success"
         assert call_count == 3
 
@@ -163,7 +163,7 @@ class TestAsyncRetryDecorator:
             raise Exception("Permanent error")
 
         with pytest.raises(RetryExhaustedError):
-            asyncio.get_event_loop().run_until_complete(always_fail())
+            asyncio.run(always_fail())
 
         assert call_count == 3  # 1 initial + 2 retries
 

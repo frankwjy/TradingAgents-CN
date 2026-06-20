@@ -24,7 +24,7 @@ class TestResearchDepth5Levels:
         assert config["max_debate_rounds"] == 1
         assert config["max_risk_discuss_rounds"] == 1
         assert config["memory_enabled"] is False  # 快速分析禁用记忆
-        assert config["online_tools"] is False  # 快速分析禁用在线工具
+        assert config["online_tools"] is True  # 统一使用在线工具
         assert config["quick_think_llm"] == "qwen-turbo"
         assert config["deep_think_llm"] == "qwen-plus"
 
@@ -155,9 +155,9 @@ class TestResearchDepth5Levels:
         assert configs[3]["risk_rounds"] == 2  # 深度
         assert configs[4]["risk_rounds"] == 3  # 全面
 
-        # 验证记忆和在线工具（快速分析禁用，其他启用）
+        # 验证记忆和在线工具（快速分析禁用记忆，但所有级别都启用在线工具）
         assert configs[0]["memory"] is False  # 快速
-        assert configs[0]["online"] is False  # 快速
+        assert configs[0]["online"] is True  # 统一使用在线工具
         for i in range(1, 5):
             assert configs[i]["memory"] is True
             assert configs[i]["online"] is True
