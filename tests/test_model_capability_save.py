@@ -35,6 +35,7 @@ class TestModelCapabilitySave:
     def setup_method(self):
         self.service = ModelCapabilityService()
 
+    @pytest.mark.integration
     def test_save_model_capability_update_existing(self):
         """测试更新已有模型的能力配置"""
         mock_doc = {
@@ -70,6 +71,7 @@ class TestModelCapabilitySave:
         assert updated_configs[0]["capability_level"] == 3
         assert updated_configs[0]["features"] == ["tool_calling", "reasoning"]
 
+    @pytest.mark.integration
     def test_save_model_capability_new_model(self):
         """测试新增不存在的模型能力配置"""
         mock_doc = {"_id": "test_id", "llm_configs": []}
@@ -94,6 +96,7 @@ class TestModelCapabilitySave:
         assert updated_configs[0]["model_name"] == "new-model"
         assert updated_configs[0]["capability_level"] == 4
 
+    @pytest.mark.integration
     def test_save_model_capability_no_active_config(self):
         """测试没有激活配置时保存失败"""
         mock_client, mock_collection = _build_mock_mongo(None)
@@ -113,6 +116,7 @@ class TestModelCapabilitySave:
 
         assert result is False
 
+    @pytest.mark.integration
     def test_save_model_capabilities_batch_success(self):
         """测试批量保存模型能力配置成功"""
         mock_doc = {
@@ -156,6 +160,7 @@ class TestModelCapabilitySave:
         assert result["added"] == 1
         assert result["failed"] == 0
 
+    @pytest.mark.integration
     def test_save_model_capabilities_batch_with_missing_model_name(self):
         """测试批量保存时部分条目缺少 model_name"""
         mock_doc = {"_id": "test_id", "llm_configs": []}
@@ -187,6 +192,7 @@ class TestModelCapabilitySave:
         assert result["added"] == 1
         assert result["failed"] == 1
 
+    @pytest.mark.integration
     def test_save_model_capabilities_batch_no_active_config(self):
         """测试批量保存时没有激活配置"""
         mock_client, mock_collection = _build_mock_mongo(None)

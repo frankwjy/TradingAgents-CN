@@ -6,6 +6,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -16,6 +18,7 @@ from app.core.database import close_db, get_mongo_db, init_db
 from app.services.quotes_ingestion_service import QuotesIngestionService
 
 
+@pytest.mark.integration
 async def test_normalize_stock_code():
     """测试股票代码标准化功能"""
     print("\n" + "=" * 60)

@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
 from dotenv import load_dotenv
 
 # 添加项目根目录到Python路径
@@ -17,6 +18,7 @@ sys.path.insert(0, str(project_root))
 load_dotenv()
 
 
+@pytest.mark.integration
 def test_deepseek_cost_calculation():
     """测试DeepSeek成本计算"""
     print("🧪 测试DeepSeek成本计算修复")
@@ -94,6 +96,7 @@ def test_deepseek_cost_calculation():
         return False
 
 
+@pytest.mark.integration
 def test_cost_precision():
     """测试成本精度显示"""
     print("\n🔍 测试成本精度显示")

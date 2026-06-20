@@ -11,6 +11,7 @@ from datetime import datetime
 
 import aiohttp
 import websockets
+import pytest
 
 
 async def test_async_analysis():

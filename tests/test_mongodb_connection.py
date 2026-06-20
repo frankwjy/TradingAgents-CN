@@ -5,6 +5,7 @@
 
 from pymongo import MongoClient
 from pymongo.errors import OperationFailure, ServerSelectionTimeoutError
+import pytest
 
 def test_connections():
     """测试不同的MongoDB连接"""
