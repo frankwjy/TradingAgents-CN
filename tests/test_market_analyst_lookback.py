@@ -16,6 +16,8 @@ import os
 import sys
 from datetime import datetime, timedelta
 
+import pytest
+
 # 添加项目根目录到路径
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, project_root)
@@ -56,6 +58,7 @@ def test_config_loading():
         return None
 
 
+@pytest.mark.integration
 def test_date_range_calculation(lookback_days):
     """测试2：验证日期范围计算"""
     print("\n" + "=" * 80)
@@ -96,6 +99,7 @@ def test_date_range_calculation(lookback_days):
         return None, None, None
 
 
+@pytest.mark.integration
 def test_data_fetching(start_date, end_date):
     """测试3：验证数据获取"""
     print("\n" + "=" * 80)
@@ -157,6 +161,7 @@ def test_data_fetching(start_date, end_date):
         return False
 
 
+@pytest.mark.integration
 def test_technical_indicators_accuracy(lookback_days):
     """测试4：验证技术指标准确性要求"""
     print("\n" + "=" * 80)
