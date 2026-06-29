@@ -10,6 +10,7 @@ import requests
 import pytest
 
 
+@pytest.mark.integration
 def test_analysis_result():
     """测试分析结果的数据结构"""
     base_url = "http://localhost:8000"

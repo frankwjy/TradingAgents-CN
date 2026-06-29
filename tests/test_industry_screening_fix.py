@@ -16,6 +16,7 @@ BASE_URL = "http://localhost:8000"
 FRONTEND_URL = "http://localhost:3000"
 
 
+@pytest.mark.integration
 async def test_industry_screening():
     """测试行业筛选功能"""
     print("🧪 测试行业筛选修复")
@@ -112,6 +113,7 @@ async def test_industry_screening():
         return False
 
 
+@pytest.mark.integration
 def test_frontend_payload():
     """测试前端修复后会发送的payload格式"""
     print("\n4. 测试前端修复后的payload格式...")
