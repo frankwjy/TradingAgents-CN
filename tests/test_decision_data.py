@@ -10,6 +10,7 @@ import requests
 import pytest
 
 
+@pytest.mark.integration
 def test_decision_data():
     """测试decision数据的完整流程"""
     base_url = "http://localhost:8000"

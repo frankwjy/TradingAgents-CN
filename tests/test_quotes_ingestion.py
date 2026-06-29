@@ -58,6 +58,7 @@ async def test_normalize_stock_code():
     return failed == 0
 
 
+@pytest.mark.integration
 async def test_market_quotes_status():
     """测试 market_quotes 集合状态"""
     print("\n" + "=" * 60)
@@ -108,6 +109,7 @@ async def test_market_quotes_status():
     return True
 
 
+@pytest.mark.integration
 async def test_historical_data_import():
     """测试从历史数据导入功能"""
     print("\n" + "=" * 60)
@@ -185,6 +187,7 @@ async def test_historical_data_import():
     return True
 
 
+@pytest.mark.integration
 async def test_akshare_realtime_quotes():
     """测试 AKShare 实时行情获取（检查代码标准化）"""
     print("\n" + "=" * 60)

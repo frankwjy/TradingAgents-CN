@@ -14,6 +14,7 @@ import websockets
 import pytest
 
 
+@pytest.mark.integration
 async def test_async_analysis():
     """测试异步分析功能"""
 
@@ -151,6 +152,7 @@ async def test_async_analysis():
                 print(f"  - {task['task_id'][:8]}... : {task['status']} ({task['progress']}%)")
 
 
+@pytest.mark.integration
 async def test_websocket_progress(task_id: str, ws_url: str):
     """测试 WebSocket 实时进度"""
     try:
@@ -192,6 +194,7 @@ async def test_websocket_progress(task_id: str, ws_url: str):
         print(f"❌ WebSocket 连接失败: {e}")
 
 
+@pytest.mark.integration
 async def test_concurrent_requests():
     """测试并发请求能力"""
     print("\n🔄 测试并发请求能力...")

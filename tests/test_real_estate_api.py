@@ -12,6 +12,7 @@ import pytest
 BASE_URL = "http://localhost:8000"
 
 
+@pytest.mark.integration
 def test_real_estate_screening():
     """测试房地产筛选"""
     print("🏠 测试房地产相关筛选")
