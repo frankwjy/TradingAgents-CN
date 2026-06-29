@@ -12,6 +12,7 @@ import aiohttp
 import pytest
 
 
+@pytest.mark.integration
 async def test_non_blocking_analysis():
     """测试非阻塞分析功能"""
 
@@ -101,6 +102,7 @@ async def test_non_blocking_analysis():
                 print(f"❌ 状态查询失败: {resp.status}")
 
 
+@pytest.mark.integration
 async def test_concurrent_requests():
     """测试并发请求"""
     print("\n🔄 测试并发请求...")

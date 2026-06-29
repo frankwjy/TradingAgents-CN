@@ -12,6 +12,7 @@ import pytest
 BASE_URL = "http://localhost:8000"
 
 
+@pytest.mark.integration
 def test_industries_api():
     """测试行业API"""
     print("🧪 测试行业API")

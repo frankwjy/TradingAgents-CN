@@ -34,6 +34,7 @@ def login_and_get_token(base_url):
         return None
 
 
+@pytest.mark.integration
 def test_reports_api():
     """测试报告API功能"""
     base_url = "http://localhost:8000"
@@ -182,6 +183,7 @@ def test_reports_api():
         return False
 
 
+@pytest.mark.integration
 def test_reports_with_filters():
     """测试带筛选条件的报告查询"""
     base_url = "http://localhost:8000"
