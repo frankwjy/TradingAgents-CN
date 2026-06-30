@@ -9,6 +9,8 @@ import os
 import sys
 from datetime import datetime, timedelta
 
+import pytest
+
 # 添加项目根目录到路径
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
@@ -77,6 +79,7 @@ def analyze_data_content(data, level_name):
     return {"length": len(data), "sections": sections, "data_types": data_types, "date_range": date_range}
 
 
+@pytest.mark.integration
 def test_stock_with_all_levels(ticker, stock_name):
     """测试单个股票在所有级别下的数据获取"""
     print(f"\n{'=' * 80}")

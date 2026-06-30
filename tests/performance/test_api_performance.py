@@ -110,6 +110,7 @@ class TestAPIPerformance:
             "status_code": response.status_code
         })
 
+    @pytest.mark.performance
     def test_api_response_consistency(self, app_client, performance_timer, benchmark_result):
         """Test that API responses are consistent in timing"""
         times = []

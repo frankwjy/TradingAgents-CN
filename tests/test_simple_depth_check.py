@@ -6,11 +6,14 @@
 import os
 import sys
 
+import pytest
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from tradingagents.agents.utils.agent_utils import Toolkit
 
 
+@pytest.mark.integration
 def test_depth_level(depth):
     """测试指定深度级别"""
     print(f"\n{'=' * 50}")

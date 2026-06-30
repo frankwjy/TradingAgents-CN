@@ -74,6 +74,7 @@ def get_existing_task_ids():
         return []
 
 
+@pytest.mark.integration
 def test_existing_result(task_id, stock_symbol):
     """测试已有的分析结果"""
     print(f"\n🔍 测试已有结果: {task_id} ({stock_symbol})")

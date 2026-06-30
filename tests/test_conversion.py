@@ -9,6 +9,7 @@ import tempfile
 from datetime import datetime
 
 import pypandoc
+import pytest
 
 
 def test_markdown_content():
@@ -89,6 +90,7 @@ def save_test_content():
     return content
 
 
+@pytest.mark.integration
 def test_word_conversion(md_content):
     """测试Word转换"""
     print("\n🔄 测试Word转换...")
@@ -147,6 +149,7 @@ def test_word_conversion(md_content):
         return False
 
 
+@pytest.mark.integration
 def test_pdf_conversion(md_content):
     """测试PDF转换"""
     print("\n🔄 测试PDF转换...")

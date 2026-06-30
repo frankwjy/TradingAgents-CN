@@ -44,6 +44,7 @@ def test_asyncio_in_thread_pool():
         assert result == "success"
 
 
+@pytest.mark.integration
 def test_data_source_manager_in_thread_pool():
     """测试 DataSourceManager 在线程池中的使用"""
 
