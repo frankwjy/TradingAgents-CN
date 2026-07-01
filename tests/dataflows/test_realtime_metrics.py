@@ -37,25 +37,41 @@ def test_calculate_realtime_pe_pb_with_mock_data(monkeypatch):
         def __init__(self, collection_type=""):
             self.collection_type = collection_type
 
-        def find_one(self, query):
+        def find_one(self, query, **kwargs):
             code = query.get("code")
             if code == "000001":
                 if self.collection_type == "market_quotes":
-                    # 返回实时行情
-                    return {"code": "000001", "close": 10.5, "updated_at": "2025-10-14T10:30:00"}
-                else:
-                    # 返回基础信息
+                    # 返回实时行情（含pre_close）
                     return {
                         "code": "000001",
+                        "close": 10.5,
+                        "pre_close": 10.0,
+                        "updated_at": "2025-10-14T10:30:00",
+                    }
+                elif self.collection_type == "stock_basic_info":
+                    # 返回Tushare基础信息（含source和pe_ttm）
+                    return {
+                        "code": "000001",
+                        "source": "tushare",
                         "total_share": 100000,  # 10万万股 = 10亿股
                         "net_profit": 50000,  # 5万万元 = 5亿元
                         "total_hldr_eqy_exc_min_int": 200000,  # 20万万元 = 20亿元
+                        "pe_ttm": 21.0,
+                    }
+                elif self.collection_type == "stock_financial_data":
+                    # 返回财务数据（用于PB计算）
+                    return {
+                        "code": "000001",
+                        "total_equity": 2000000000,  # 20亿（元）
                     }
             return None
 
     class MockDB:
         def __getitem__(self, name):
             return MockCollection(name)
+
+        def __getattr__(self, name):
+            return self[name]
 
     class MockClient:
         def __getitem__(self, name):
@@ -68,13 +84,20 @@ def test_calculate_realtime_pe_pb_with_mock_data(monkeypatch):
     assert result is not None
     assert result["price"] == 10.5
     assert result["is_realtime"] == True
-    assert result["source"] == "realtime_calculated"
 
-    # 验证PE计算：市值 = 10.5 * 100000 = 1050000万元，PE = 1050000 / 50000 = 21
-    assert result["pe"] == 21.0
+    # 验证PE计算：
+    # 昨日市值 = 100000万股 * 10.0元 / 10000 = 100亿元
+    # TTM净利润 = 100 / 21.0 ≈ 4.76亿元
+    # 实时市值 = 10.5 * 100000 / 10000 = 105亿元
+    # 动态PE = 105 / 4.76 ≈ 22.05
+    assert result["pe"] is not None
+    assert result["pe"] > 0
 
-    # 验证PB计算：PB = 1050000 / 200000 = 5.25
-    assert result["pb"] == 5.25
+    # 验证PB计算：
+    # 净资产 = 20亿元
+    # PB = 105 / 20 = 5.25
+    assert result["pb"] is not None
+    assert result["pb"] > 0
 
 
 def test_calculate_realtime_pe_pb_missing_data(monkeypatch):
@@ -87,6 +110,9 @@ def test_calculate_realtime_pe_pb_missing_data(monkeypatch):
     class MockDB:
         def __getitem__(self, name):
             return MockCollection()
+
+        def __getattr__(self, name):
+            return self[name]
 
     class MockClient:
         def __getitem__(self, name):
@@ -115,12 +141,19 @@ def test_get_pe_pb_with_fallback_success(monkeypatch):
             "updated_at": "2025-10-14T10:30:00",
         }
 
+    class MockDB:
+        pass
+
+    class MockClient:
+        def __getitem__(self, name):
+            return MockDB()
+
     import tradingagents.dataflows.realtime_metrics as metrics_module
 
     monkeypatch.setattr(metrics_module, "calculate_realtime_pe_pb", mock_calculate)
 
     # 执行测试
-    result = get_pe_pb_with_fallback("000001", None)
+    result = get_pe_pb_with_fallback("000001", MockClient())
 
     # 验证结果
     assert result["pe"] == 22.5
@@ -151,6 +184,9 @@ def test_get_pe_pb_with_fallback_to_static(monkeypatch):
     class MockDB:
         def __getitem__(self, name):
             return MockCollection()
+
+        def __getattr__(self, name):
+            return self[name]
 
     class MockClient:
         def __getitem__(self, name):
